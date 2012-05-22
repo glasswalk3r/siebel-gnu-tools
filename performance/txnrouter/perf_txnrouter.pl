@@ -162,7 +162,7 @@ foreach my $file (@files) {
                         removes       => $fields[8]
                     );
 
-                    push( @{ $rows{$date}->{$timestamp}->{nodes} }, \%node );
+  #                    push( @{ $rows{$date}->{$timestamp}->{nodes} }, \%node );
 
                     foreach my $attrib (
                         qw(total_opers total_time ts_time vis_events nonvis_events enterprise downloads removes)
@@ -201,26 +201,6 @@ foreach my $day ( keys(%rows) ) {
     my @times = sort( keys( %{ $rows{$day} } ) );
     my $total = ( scalar(@times) ) - 1;
 
-    my $increment;
-
-    {
-
-        use integer;
-
-# :WORKAROUND:10/08/2011 15:58:11:: had to put a limit to the amount of registries considered or the graph would become too hard to read
-        if ( $total > 70 ) {
-
-            $increment = $total / 70;
-
-        }
-        else {
-
-            $increment = 1;
-
-        }
-
-    }
-
     #time spent in activities
     my @dx_parse_time;
     my @ts_time;
@@ -233,45 +213,55 @@ foreach my $day ( keys(%rows) ) {
     my @removes;
     my @vis_events;
 
-    my $i = 0;
-    my @partial;
+    my $data_ref;
 
-    while ( $i <= $total ) {
+# :WORKAROUND:10/08/2011 15:58:11:: had to put a limit to the amount of registries considered or the graph would become too hard to read
+    if ( $total > 70 ) {
 
-        push( @partial, $times[$i] );
-        $i += $increment;
+        my $skipped = $total - 70;
+        warn
+"Too many data, taking only first 70 highest values. Skipping $skipped entries\n";
+
+  #        my @data = ( \@times, \@dx_parse_time, \@ts_time, \@vis_check_time );
+        $data_ref =
+          first_high( $day, \%rows, \@times, 70,
+            [qw(dx_parse_time ts_time vis_check_time)] );
 
     }
+    else {
 
-    foreach my $time (@partial) {
+        foreach my $time (@times) {
 
-        if ( exists( $rows{$day}->{$time} ) ) {
+            if ( exists( $rows{$day}->{$time} ) ) {
 
-            push( @dx_parse_time,
-                $rows{$day}->{$time}->{greatest}->{dx_parse_time} );
-            push( @ts_time, $rows{$day}->{$time}->{greatest}->{ts_time} );
-            push( @vis_check_time,
-                $rows{$day}->{$time}->{greatest}->{vis_check_time} );
+                push( @dx_parse_time,
+                    $rows{$day}->{$time}->{greatest}->{dx_parse_time} );
+                push( @ts_time, $rows{$day}->{$time}->{greatest}->{ts_time} );
+                push( @vis_check_time,
+                    $rows{$day}->{$time}->{greatest}->{vis_check_time} );
 
-            push( @downloads,  $rows{$day}->{$time}->{greatest}->{downloads} );
-            push( @enterprise, $rows{$day}->{$time}->{greatest}->{enterprise} );
-            push( @nonvis_events,
-                $rows{$day}->{$time}->{greatest}->{nonvis_events} );
-            push( @removes,    $rows{$day}->{$time}->{greatest}->{removes} );
-            push( @vis_events, $rows{$day}->{$time}->{greatest}->{vis_events} );
+                push( @downloads,
+                    $rows{$day}->{$time}->{greatest}->{downloads} );
+                push( @enterprise,
+                    $rows{$day}->{$time}->{greatest}->{enterprise} );
+                push( @nonvis_events,
+                    $rows{$day}->{$time}->{greatest}->{nonvis_events} );
+                push( @removes, $rows{$day}->{$time}->{greatest}->{removes} );
+                push( @vis_events,
+                    $rows{$day}->{$time}->{greatest}->{vis_events} );
 
-        }
-        else {
+            }
+            else {
 
-            warn "$time does not exists at $day\n";
+                warn "$time does not exists at $day\n";
+
+            }
 
         }
 
     }
 
     my $graph_times = GD::Graph::lines->new( 1440, 900 );
-
-    my @data = ( \@partial, \@dx_parse_time, \@ts_time, \@vis_check_time );
 
     $graph_times->set(
         x_label           => 'Time of day (hh:mm:ss)',
@@ -289,7 +279,7 @@ foreach my $day ( keys(%rows) ) {
     $graph_times->set_legend( 'DX Parse Time',
         'TS Time', 'Visibility Check Time' );
 
-    my $gd = $graph_times->plot( \@data ) or die $graph_times->error();
+    my $gd = $graph_times->plot($data_ref) or die $graph_times->error();
 
     my $path = File::Spec->catfile( $opts{d}, $times_img );
 
@@ -298,12 +288,14 @@ foreach my $day ( keys(%rows) ) {
     print $img $gd->png();
     close($img);
 
+    exit(0);
+
     my $graph_opers = GD::Graph::lines->new( 1440, 900 );
 
-    @data = (
-        \@partial,       \@downloads, \@enterprise,
-        \@nonvis_events, \@removes,   \@vis_events
-    );
+    #    @data = (
+    #        \@partial,       \@downloads, \@enterprise,
+    #        \@nonvis_events, \@removes,   \@vis_events
+    #    );
 
     $graph_opers->set(
         x_label           => 'Time of day (hh:mm:ss)',
@@ -324,7 +316,7 @@ foreach my $day ( keys(%rows) ) {
         'Visibility Events'
     );
 
-    my $gd2 = $graph_opers->plot( \@data ) or die $graph_opers->error();
+    my $gd2 = $graph_opers->plot($data_ref) or die $graph_opers->error();
 
     $path = File::Spec->catfile( $opts{d}, $opers_img );
 
@@ -336,3 +328,109 @@ foreach my $day ( keys(%rows) ) {
 }
 
 print "Finished\n";
+
+# subs
+
+# this sub will get the first N highest values
+sub first_high {
+
+    my $day       = shift;    #string
+    my $rows_ref  = shift;    #hash ref
+    my $times_ref = shift;    #array ref with ordered times
+    my $first     = shift;    #integer
+    my $items_ref = shift;
+
+    my %data;
+
+    foreach my $time ( @{$times_ref} ) {
+
+        if ( exists( $rows_ref->{$day}->{$time} ) ) {
+
+            foreach my $item ( @{$items_ref} ) {
+
+                my $value = $rows_ref->{$day}->{$time}->{greatest}->{$item};
+
+                $data{$item}->{$time} = $value;
+
+            }
+
+        }
+        else {
+
+            warn "$time does not exists at $day\n";
+
+        }
+
+    }
+
+    my $last = $first - 1;
+
+    my %new_times;
+
+    foreach my $item ( @{$items_ref} ) {
+
+        my @high;
+        my $counter = 0;
+
+        foreach my $time (
+            sort { $data{$item}->{$b} <=> $data{$item}->{$a} }
+            keys( %{ $data{$item} } )
+          )
+        {
+
+            push( @high, $time );
+            $counter++;
+
+            last if ( $counter == $last );
+
+        }
+
+        foreach my $time (@high) {
+
+            #            print $time, "\t", $data{$item}->{$time}, "\n";
+            $new_times{$time} = 0;    #removes duplicated timestamp
+
+        }
+
+    }
+
+    my @sorted_new_times = sort( keys(%new_times) );
+
+    my %new_data = ( dx_parse_time => [], ts_time => [], vis_check_time => [] );
+
+    my @dx_parse_time;
+    my @ts_time;
+    my @vis_check_time;
+
+    foreach my $timestamp (@sorted_new_times) {
+
+        foreach my $item ( @{$items_ref} ) {
+
+            if ( exists( $data{$item}->{$timestamp} ) ) {
+
+                push(
+                    @{ $new_data{$item} },
+                    $data{$item}->{$timestamp}
+                );
+
+            }
+            else {
+
+                push( @{ $new_data{$item} }, 0 );
+
+            }
+
+        }
+
+    }
+
+    return [
+        \@sorted_new_times,
+        $new_data{dx_parse_time},
+        $new_data{ts_time},
+        $new_data{vis_check_time}
+    ];
+
+  #        my @data = ( \@times, \@dx_parse_time, \@ts_time, \@vis_check_time );
+
+}
