@@ -24,6 +24,8 @@
 use warnings;
 use strict;
 use GD::Graph::lines;
+
+# :TODO:05-06-2012:arfreitas: use Getopt::Long
 use Getopt::Std;
 use File::Spec;
 
@@ -42,7 +44,7 @@ perl_txnrouter is a Perl script to parse txnrouter log files with performance in
 and produce graphic images about the values recovered
 Usage: perf_txnrouter.pl -d PATH
 Where:
-	PATH = complete path to the directory were the txnrouter log files are available
+	-d = complete path to the directory were the txnrouter log files are available
 
 $copyright
 This program is part of Siebel GNU Tools.
@@ -162,8 +164,6 @@ foreach my $file (@files) {
                         removes       => $fields[8]
                     );
 
-  #                    push( @{ $rows{$date}->{$timestamp}->{nodes} }, \%node );
-
                     foreach my $attrib (
                         qw(total_opers total_time ts_time vis_events nonvis_events enterprise downloads removes)
                       )
@@ -213,7 +213,8 @@ foreach my $day ( keys(%rows) ) {
     my @removes;
     my @vis_events;
 
-    my $data_ref;
+    my $times_data_ref;
+    my $opers_data_ref;
 
 # :WORKAROUND:10/08/2011 15:58:11:: had to put a limit to the amount of registries considered or the graph would become too hard to read
     if ( $total > 70 ) {
@@ -222,14 +223,19 @@ foreach my $day ( keys(%rows) ) {
         warn
 "Too many data, taking only first 70 highest values. Skipping $skipped entries\n";
 
-  #        my @data = ( \@times, \@dx_parse_time, \@ts_time, \@vis_check_time );
-        $data_ref =
+        $times_data_ref =
           first_high( $day, \%rows, \@times, 70,
             [qw(dx_parse_time ts_time vis_check_time)] );
+
+        $opers_data_ref =
+          first_high( $day, \%rows, \@times, 70,
+            [qw(downloads enterprise nonvis_events removes vis_events)] );
 
     }
     else {
 
+# :TODO:05-06-2012:arfreitas: must modify to use the same data estructure expected by gen_*_graph functions
+#        my @data = ( \@times, \@dx_parse_time, \@ts_time, \@vis_check_time );
         foreach my $time (@times) {
 
             if ( exists( $rows{$day}->{$time} ) ) {
@@ -261,69 +267,8 @@ foreach my $day ( keys(%rows) ) {
 
     }
 
-    my $graph_times = GD::Graph::lines->new( 1440, 900 );
-
-    $graph_times->set(
-        x_label           => 'Time of day (hh:mm:ss)',
-        y_label           => 'Time spend (ms)',
-        title             => 'Time spent on operations by timestamp',
-        x_labels_vertical => 1,
-        transparent       => 0,
-        bgclr             => 'white',
-        logo              => 'perlpowered.png',
-        logo_position     => 'UR'
-
-          #        y_max_value       => 800
-    ) or die $graph_times->error();
-
-    $graph_times->set_legend( 'DX Parse Time',
-        'TS Time', 'Visibility Check Time' );
-
-    my $gd = $graph_times->plot($data_ref) or die $graph_times->error();
-
-    my $path = File::Spec->catfile( $opts{d}, $times_img );
-
-    open( my $img, '>', $path ) or die "Cannot create $path: $!\n";
-    binmode($img);
-    print $img $gd->png();
-    close($img);
-
-    exit(0);
-
-    my $graph_opers = GD::Graph::lines->new( 1440, 900 );
-
-    #    @data = (
-    #        \@partial,       \@downloads, \@enterprise,
-    #        \@nonvis_events, \@removes,   \@vis_events
-    #    );
-
-    $graph_opers->set(
-        x_label           => 'Time of day (hh:mm:ss)',
-        y_label           => 'Total of operations',
-        title             => 'Total of operations by timestamp',
-        x_labels_vertical => 1,
-        transparent       => 0,
-        bgclr             => 'white',
-        logo              => 'perlpowered.png',
-        logo_position     => 'UR'
-
-          #        y_max_value       => 1200
-    ) or die $graph_opers->error();
-
-    $graph_opers->set_legend(
-        'Downloads',             'Enterprise',
-        'Non Visibility Events', 'Removes',
-        'Visibility Events'
-    );
-
-    my $gd2 = $graph_opers->plot($data_ref) or die $graph_opers->error();
-
-    $path = File::Spec->catfile( $opts{d}, $opers_img );
-
-    open( my $img2, '>', $path ) or die "Cannot create $path: $!\n";
-    binmode($img2);
-    print $img2 $gd2->png();
-    close($img2);
+    gen_times_graph( $times_data_ref, $times_img, $opts{d} );
+    gen_opers_graph( $opers_data_ref, $opers_img, $opts{d} );
 
 }
 
@@ -332,13 +277,14 @@ print "Finished\n";
 # subs
 
 # this sub will get the first N highest values
+# :TODO:05-06-2012:arfreitas: too many parameters, items_ref should be a hash to avoid confusion with items order
 sub first_high {
 
     my $day       = shift;    #string
     my $rows_ref  = shift;    #hash ref
     my $times_ref = shift;    #array ref with ordered times
     my $first     = shift;    #integer
-    my $items_ref = shift;
+    my $items_ref = shift;    #array ref with performance itens to be evaluated
 
     my %data;
 
@@ -396,7 +342,13 @@ sub first_high {
 
     my @sorted_new_times = sort( keys(%new_times) );
 
-    my %new_data = ( dx_parse_time => [], ts_time => [], vis_check_time => [] );
+    my %new_data;
+
+    foreach my $item ( @{$items_ref} ) {
+
+        $new_data{$item} = [];
+
+    }
 
     my @dx_parse_time;
     my @ts_time;
@@ -408,10 +360,7 @@ sub first_high {
 
             if ( exists( $data{$item}->{$timestamp} ) ) {
 
-                push(
-                    @{ $new_data{$item} },
-                    $data{$item}->{$timestamp}
-                );
+                push( @{ $new_data{$item} }, $data{$item}->{$timestamp} );
 
             }
             else {
@@ -424,13 +373,92 @@ sub first_high {
 
     }
 
-    return [
-        \@sorted_new_times,
-        $new_data{dx_parse_time},
-        $new_data{ts_time},
-        $new_data{vis_check_time}
-    ];
+    my @return_data = ( \@sorted_new_times );
 
-  #        my @data = ( \@times, \@dx_parse_time, \@ts_time, \@vis_check_time );
+    foreach my $item ( @{$items_ref} ) {
+
+        push( @return_data, $new_data{$item} );
+
+    }
+
+    return \@return_data;
+
+}
+
+sub gen_img {
+
+    my $graph    = shift;
+    my $img_path = shift;
+
+    open( my $img, '>', $img_path ) or die "Cannot create $img_path: $!\n";
+    binmode($img);
+    print $img $graph->png();
+    close($img);
+
+}
+
+sub gen_times_graph {
+
+    my $data_ref  = shift;
+    my $times_img = shift;
+    my $input_dir = shift;
+
+    my $graph_times = GD::Graph::lines->new( 1440, 900 );
+
+    $graph_times->set(
+        x_label           => 'Time of day (hh:mm:ss)',
+        y_label           => 'Time spend (ms)',
+        title             => 'Time spent on operations by timestamp',
+        x_labels_vertical => 1,
+        transparent       => 0,
+        bgclr             => 'white',
+        logo              => 'perlpowered.png',
+        logo_position     => 'UR'
+    ) or die $graph_times->error();
+
+    $graph_times->set_legend( 'DX Parse Time',
+        'TS Time', 'Visibility Check Time' );
+
+    my $gd = $graph_times->plot($data_ref) or die $graph_times->error();
+
+    gen_img( $gd, File::Spec->catfile( $opts{d}, $times_img ) );
+
+}
+
+sub gen_opers_graph {
+
+    my $data_ref  = shift;
+    my $opers_img = shift;
+    my $input_dir = shift;
+
+    my $graph_opers = GD::Graph::lines->new( 1440, 900 );
+
+    #    @data = (
+    #        \@partial,       \@downloads, \@enterprise,
+    #        \@nonvis_events, \@removes,   \@vis_events
+    #    );
+
+    $graph_opers->set(
+        x_label           => 'Time of day (hh:mm:ss)',
+        y_label           => 'Total of operations',
+        title             => 'Total of operations by timestamp',
+        x_labels_vertical => 1,
+        transparent       => 0,
+        bgclr             => 'white',
+        logo              => 'perlpowered.png',
+        logo_position     => 'UR'
+
+          #        y_max_value       => 1200
+    ) or die $graph_opers->error();
+
+    $graph_opers->set_legend(
+        'Downloads',             'Enterprise',
+        'Non Visibility Events', 'Removes',
+        'Visibility Events'
+    );
+
+    my $gd = $graph_opers->plot($data_ref) or die $graph_opers->error();
+
+    gen_img( $gd, File::Spec->catfile( $opts{d}, $opers_img ) );
 
 }
