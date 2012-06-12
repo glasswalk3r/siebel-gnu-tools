@@ -24,35 +24,23 @@
 use warnings;
 use strict;
 use GD::Graph::lines;
-
-# :TODO:05-06-2012:arfreitas: use Getopt::Long
-use Getopt::Std;
+use Getopt::Long qw(:config auto_version auto_help);
 use File::Spec;
+use Pod::Usage;
 
-my %opts;
-my $version = '0.1';
-my $copyright =
-'This software is copyright (c) 2012 of Alceu Rodrigues de Freitas Junior, glasswalk3r@yahoo.com.br, licensed under GPL v3';
+our $VERSION = 0.1;
 
-getopt( 'd:', \%opts );
+my $input_dir = '';
+my $max_high  = 70;
 
-unless ( defined( $opts{d} ) ) {
+GetOptions(
+    "input=s" => \$input_dir,
+    'max:i'   => \$max_high
+) or pod2usage(2);
 
-    die <<BLOCK;
-perl_txnrouter - version $version
-perl_txnrouter is a Perl script to parse txnrouter log files with performance information
-and produce graphic images about the values recovered
-Usage: perf_txnrouter.pl -d PATH
-Where:
-	-d = complete path to the directory were the txnrouter log files are available
+pod2usage(2) if ( $input_dir eq '' );
 
-$copyright
-This program is part of Siebel GNU Tools.
-BLOCK
-
-}
-
-opendir( my $dir, $opts{d} ) or die "Cannot read directory $opts{d}: $!\n";
+opendir( my $dir, $input_dir ) or die "Cannot read directory $input_dir: $!\n";
 my @files = readdir($dir);
 close($dir);
 
@@ -69,17 +57,21 @@ foreach my $file (@files) {
 
     next unless ( $file =~ /^TxnRoute_\d+\.log$/ );
 
-    my $path = File::Spec->catfile( $opts{d}, $file );
+    my $path = File::Spec->catfile( $input_dir, $file );
 
     open( my $in, '<', "$path" ) or die "Cannot read $path: $!\n";
 
     print "Reading $path\n";
+
+    my $no_perf_data = 1;
 
     while (<$in>) {
 
         chomp();
 
         if ( $_ =~ $perf_regex ) {
+
+            $no_perf_data = 0;
 
             my @fields = split( /\t/, $_ );
 
@@ -188,92 +180,112 @@ foreach my $file (@files) {
 
     close($in);
 
+    print "File $file has no performance data\n" if ($no_perf_data);
+
 }
 
 print "Finished reading log files\n";
-print "Generating graphics\n";
 
-foreach my $day ( keys(%rows) ) {
+if ( keys(%rows) ) {
 
-    my $times_img = "times_$day.png";
-    my $opers_img = "opers_$day.png";
+    print "Generating graphics\n";
 
-    my @times = sort( keys( %{ $rows{$day} } ) );
-    my $total = ( scalar(@times) ) - 1;
+    foreach my $day ( keys(%rows) ) {
 
-    #time spent in activities
-    my @dx_parse_time;
-    my @ts_time;
-    my @vis_check_time;
+        my $times_img = "times_$day.png";
+        my $opers_img = "opers_$day.png";
 
-    #number of operations
-    my @downloads;
-    my @enterprise;
-    my @nonvis_events;
-    my @removes;
-    my @vis_events;
+        my @times = sort( keys( %{ $rows{$day} } ) );
+        my $total = ( scalar(@times) ) - 1;
 
-    my $times_data_ref;
-    my $opers_data_ref;
+        #time spent in activities
+        my @dx_parse_time;
+        my @ts_time;
+        my @vis_check_time;
+
+        #number of operations
+        my @downloads;
+        my @enterprise;
+        my @nonvis_events;
+        my @removes;
+        my @vis_events;
+
+        my $times_data_ref;
+        my $opers_data_ref;
 
 # :WORKAROUND:10/08/2011 15:58:11:: had to put a limit to the amount of registries considered or the graph would become too hard to read
-    if ( $total > 70 ) {
+        if ( $total > $max_high ) {
 
-        my $skipped = $total - 70;
-        warn
-"Too many data, taking only first 70 highest values. Skipping $skipped entries\n";
+            my $skipped = $total - $max_high;
+            warn
+"Too much data at $day, taking only first $max_high highest values. Skipping $skipped entries\n";
 
-        $times_data_ref =
-          first_high( $day, \%rows, \@times, 70,
-            [qw(dx_parse_time ts_time vis_check_time)] );
+            $times_data_ref =
+              first_high( $day, \%rows, \@times, $max_high,
+                [qw(dx_parse_time ts_time vis_check_time)] );
 
-        $opers_data_ref =
-          first_high( $day, \%rows, \@times, 70,
-            [qw(downloads enterprise nonvis_events removes vis_events)] );
+            $opers_data_ref =
+              first_high( $day, \%rows, \@times, $max_high,
+                [qw(downloads enterprise nonvis_events removes vis_events)] );
 
-    }
-    else {
+        }
+        else {
 
-# :TODO:05-06-2012:arfreitas: must modify to use the same data estructure expected by gen_*_graph functions
-#        my @data = ( \@times, \@dx_parse_time, \@ts_time, \@vis_check_time );
-        foreach my $time (@times) {
+            foreach my $time (@times) {
 
-            if ( exists( $rows{$day}->{$time} ) ) {
+                if ( exists( $rows{$day}->{$time} ) ) {
 
-                push( @dx_parse_time,
-                    $rows{$day}->{$time}->{greatest}->{dx_parse_time} );
-                push( @ts_time, $rows{$day}->{$time}->{greatest}->{ts_time} );
-                push( @vis_check_time,
-                    $rows{$day}->{$time}->{greatest}->{vis_check_time} );
+                    push( @dx_parse_time,
+                        $rows{$day}->{$time}->{greatest}->{dx_parse_time} );
+                    push( @ts_time,
+                        $rows{$day}->{$time}->{greatest}->{ts_time} );
+                    push( @vis_check_time,
+                        $rows{$day}->{$time}->{greatest}->{vis_check_time} );
 
-                push( @downloads,
-                    $rows{$day}->{$time}->{greatest}->{downloads} );
-                push( @enterprise,
-                    $rows{$day}->{$time}->{greatest}->{enterprise} );
-                push( @nonvis_events,
-                    $rows{$day}->{$time}->{greatest}->{nonvis_events} );
-                push( @removes, $rows{$day}->{$time}->{greatest}->{removes} );
-                push( @vis_events,
-                    $rows{$day}->{$time}->{greatest}->{vis_events} );
+                    push( @downloads,
+                        $rows{$day}->{$time}->{greatest}->{downloads} );
+                    push( @enterprise,
+                        $rows{$day}->{$time}->{greatest}->{enterprise} );
+                    push( @nonvis_events,
+                        $rows{$day}->{$time}->{greatest}->{nonvis_events} );
+                    push( @removes,
+                        $rows{$day}->{$time}->{greatest}->{removes} );
+                    push( @vis_events,
+                        $rows{$day}->{$time}->{greatest}->{vis_events} );
 
-            }
-            else {
+                }
+                else {
 
-                warn "$time does not exists at $day\n";
+                    warn "$time does not exists at $day\n";
+
+                }
+
+                $times_data_ref =
+                  [ \@times, \@dx_parse_time, \@ts_time, \@vis_check_time ];
+                $opers_data_ref = [
+                    \@times,         \@downloads, \@enterprise,
+                    \@nonvis_events, \@removes,   \@vis_events
+                ];
 
             }
 
         }
 
+        gen_times_graph( $times_data_ref, $times_img, $input_dir, $day );
+        gen_opers_graph( $opers_data_ref, $opers_img, $input_dir, $day );
+
     }
 
-    gen_times_graph( $times_data_ref, $times_img, $opts{d} );
-    gen_opers_graph( $opers_data_ref, $opers_img, $opts{d} );
+}
+else {
+
+    print "Cannot generate charts without performance data\n";
 
 }
 
 print "Finished\n";
 
+##############################
 # subs
 
 # this sub will get the first N highest values
@@ -333,7 +345,6 @@ sub first_high {
 
         foreach my $time (@high) {
 
-            #            print $time, "\t", $data{$item}->{$time}, "\n";
             $new_times{$time} = 0;    #removes duplicated timestamp
 
         }
@@ -402,13 +413,14 @@ sub gen_times_graph {
     my $data_ref  = shift;
     my $times_img = shift;
     my $input_dir = shift;
+    my $day       = shift;
 
     my $graph_times = GD::Graph::lines->new( 1440, 900 );
 
     $graph_times->set(
         x_label           => 'Time of day (hh:mm:ss)',
         y_label           => 'Time spend (ms)',
-        title             => 'Time spent on operations by timestamp',
+        title             => "Time spent on operations by timestamp at $day",
         x_labels_vertical => 1,
         transparent       => 0,
         bgclr             => 'white',
@@ -421,7 +433,7 @@ sub gen_times_graph {
 
     my $gd = $graph_times->plot($data_ref) or die $graph_times->error();
 
-    gen_img( $gd, File::Spec->catfile( $opts{d}, $times_img ) );
+    gen_img( $gd, File::Spec->catfile( $input_dir, $times_img ) );
 
 }
 
@@ -430,18 +442,14 @@ sub gen_opers_graph {
     my $data_ref  = shift;
     my $opers_img = shift;
     my $input_dir = shift;
+    my $day       = shift;
 
     my $graph_opers = GD::Graph::lines->new( 1440, 900 );
-
-    #    @data = (
-    #        \@partial,       \@downloads, \@enterprise,
-    #        \@nonvis_events, \@removes,   \@vis_events
-    #    );
 
     $graph_opers->set(
         x_label           => 'Time of day (hh:mm:ss)',
         y_label           => 'Total of operations',
-        title             => 'Total of operations by timestamp',
+        title             => "Total of operations by timestamp at $day",
         x_labels_vertical => 1,
         transparent       => 0,
         bgclr             => 'white',
@@ -459,6 +467,55 @@ sub gen_opers_graph {
 
     my $gd = $graph_opers->plot($data_ref) or die $graph_opers->error();
 
-    gen_img( $gd, File::Spec->catfile( $opts{d}, $opers_img ) );
+    gen_img( $gd, File::Spec->catfile( $input_dir, $opers_img ) );
 
 }
+
+__END__
+
+ =head1 NAME
+
+perf_txnrouter - Parses Txnrouter log files and generate graphics from their performance data
+
+=head1 SYNOPSIS
+
+perf_txnrouter [options]
+
+Parses Txnrouter log files and generate performance graphics from their data
+
+Options:
+
+	--input: input directory
+	--max: maximum highest value
+	--help: brief help message
+	--version: version information about the program
+
+By using "perldoc perf_txnrouter" you can have more detailed information about using the program.
+
+=head1 OPTIONS
+
+=over 3 
+
+=item --help
+
+Print a brief help message and exits.
+
+=item --input
+ 
+Input directory from where to read the Transaction Router log files. This parameter is obligatory.
+
+=item --max
+
+Maximum highest value to consider to generate the graphics. This parameter is optional and the default value is 70.
+
+=back
+
+=head1 DESCRIPTION
+
+perl_txnrouter is a Perl script to parse Siebel Transaction Router log files with performance information and produce graphic images about the values recovered.
+
+This program is part of Siebel GNU Tools.
+
+This software is copyright (c) 2012 of Alceu Rodrigues de Freitas Junior, glasswalk3r@yahoo.com.br, licensed under GPL v3
+
+=cut
