@@ -27,11 +27,11 @@ use Win32::CryptData qw(:flags);
 use Term::ReadKey;
 use Getopt::Std;
 
-my $program_version = '0.3';
+our $VERSION = 0.01;
 my %opts;
 
 my $datadescr    = undef;
-my $optentropy   = 'S0m3th!ng d!ff!cu1t to r34d';
+my $optentropy   = '$!@EP!928-190y2_-ider3894y398246';
 my $reserved     = undef;
 my %promptstruct = (
     PromptFlags => undef,
@@ -44,7 +44,7 @@ getopts( 'hvarc', \%opts );
 if ( $opts{h} ) {
 
     print <<BLOCK;
-srvrmgr2 version $program_version
+srvrmgr2 version $VERSION
 ----------------------------------------------
 Usage: srvrmgr2 <-h> <-v> <-a> [<login>] <-c> [<configuration file>]
        -h: display this help message;
@@ -75,8 +75,6 @@ srvrmgr2 version $program_version
 ----------------------------------------------
 This program is a wrapper for the srvrmgr.exe program so the user and password
 can be saved in an encrypted file.
-Use is restricted to Schlumberger authorized users who must comply with the 
-Electronic Communications Policy. Usage is monitored.
 BLOCK
 
     exit;
