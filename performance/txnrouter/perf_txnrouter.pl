@@ -28,14 +28,16 @@ use Getopt::Long qw(:config auto_version auto_help);
 use File::Spec;
 use Pod::Usage;
 
-our $VERSION = 0.1;
+our $VERSION = 0.2;
 
 my $input_dir = '';
 my $max_high  = 70;
+my $export    = 0;
 
 GetOptions(
     "input=s" => \$input_dir,
-    'max:i'   => \$max_high
+    'max:i'   => \$max_high,
+    'export'  => \$export
 ) or pod2usage(2);
 
 pod2usage(2) if ( $input_dir eq '' );
@@ -46,12 +48,34 @@ close($dir);
 
 my %rows;
 
-my $perf_regex   = qr/^Performance\tPerformance\t\d/;
-my $vis_regex    = qr/Vis\sCheck\sTime.*/;
-my $header_regex = qr/Node\sName\|Total\sOpers.*/;
-
+# pre-compiled regexes to improve performance
+my $perf_regex           = qr/^Performance\tPerformance\t\d/;
+my $header_regex         = qr/Node\sName\|Total\sOpers.*/;
 my $vis_check_time_regex = qr/Vis\sCheck\sTime\:\s/;
 my $dx_file_regex        = qr/\sdx\sfile\sparsing\stime\:\s/;
+
+# I/O references for exporting data
+my $opers_out;
+my $times_out;
+
+if ($export) {
+
+	print "Exporting data is enabled\n";
+
+    my $opers_file = 'operations.csv';
+    my $times_file = 'times.csv';
+
+    open( $times_out, '>', $times_file )
+      or die "Cannot created $times_file: $!\n";
+    print $times_out
+      "Date,Time,VisCheckTime,DXFileParsingTime,TotalTime,TSTime\n";
+
+    open( $opers_out, '>', $opers_file )
+      or die "Cannot created $opers_file: $!\n";
+    print $opers_out
+"Date,Time,NodeName,TotalOpers,VisEvents,NonVisEvents,Enterprise,Downloads,Removes\n";
+
+}
 
 foreach my $file (@files) {
 
@@ -65,6 +89,8 @@ foreach my $file (@files) {
 
     my $no_perf_data = 1;
 
+    my %last_time;
+
     while (<$in>) {
 
         chomp();
@@ -73,16 +99,28 @@ foreach my $file (@files) {
 
             $no_perf_data = 0;
 
-            my @fields = split( /\t/, $_ );
+            my ( $current_time, $data ) = ( split( /\t/, $_ ) )[ 3, 4 ];
+            my ( $date, $timestamp ) = split( /\s/, $current_time );
 
-            my ( $date, $timestamp ) = split( /\s/, $fields[3] );
-            my $data = $fields[4];
+            if ($export) {
+
+                unless ( exists( $last_time{$current_time} ) ) {
+
+                    $last_time{$current_time} = {
+                        vis_check_time => 0,
+                        dx_parse_time  => 0,
+                        total_time     => 0,
+                        ts_time        => 0
+                    };
+
+                }
+
+            }
 
             unless ( exists( $rows{$date}->{$timestamp} ) ) {
 
+# TODO the greatest key is not necessary anymore, remove it and use a simple hash
                 $rows{$date}->{$timestamp} = {
-                    visdx    => [],
-                    nodes    => [],
                     greatest => {
                         vis_check_time => 0,
                         dx_parse_time  => 0,
@@ -102,23 +140,15 @@ foreach my $file (@files) {
 
           CASE: {
 
-                if ( $data =~ $vis_regex ) {
+                if ( $data =~ $vis_check_time_regex ) {
 
-                    $data =~ s/Vis\sCheck\sTime\:\s//;
+                    $data =~ s/$vis_check_time_regex//;
 
-                    #$data =~ s/$vis_check_time_regex//;
+                    $data =~ s/$dx_file_regex//;
 
-                    $data =~ s/\sdx\sfile\sparsing\stime\:\s//;
-
-                    #$data =~ s/$dx_file_regex//;
                     $data =~ tr/ //d;
 
                     my @fields = split( /\;/, $data );
-
-                    push(
-                        @{ $rows{$date}->{$timestamp}->{visdx} },
-                        { vistime => $fields[0], dxtime => $fields[1] }
-                    );
 
 # :TODO:09/08/2011 15:51:07:: this should be refactored since is not general usage
                     $rows{$date}->{$timestamp}->{greatest}->{vis_check_time} =
@@ -130,6 +160,19 @@ foreach my $file (@files) {
                       $fields[1]
                       if ( $fields[1] > $rows{$date}->{$timestamp}->{greatest}
                         ->{dx_parse_time} );
+
+                    if ($export) {
+
+                        if ( exists( $last_time{$current_time} ) ) {
+
+                            $last_time{$current_time}->{vis_check_time} =
+                              $fields[0];
+                            $last_time{$current_time}->{dx_parse_time} =
+                              $fields[1];
+
+                        }
+
+                    }
 
                     last CASE;
 
@@ -144,27 +187,62 @@ foreach my $file (@files) {
 
                     my @fields = split( /\|/, $data );
 
-                    my %node = (
-                        node          => $fields[0],
-                        total_opers   => $fields[1],
-                        total_time    => $fields[2],
-                        ts_time       => $fields[3],
-                        vis_events    => $fields[4],
-                        nonvis_events => $fields[5],
-                        enterprise    => $fields[6],
-                        downloads     => $fields[7],
-                        removes       => $fields[8]
-                    );
+# fields have the following sequence of data
+# Node Name|Total Opers|Time|TS Time|VisEvents|NonVisEvents|Enterprise|Downloads|Removes
 
-                    foreach my $attrib (
-                        qw(total_opers total_time ts_time vis_events nonvis_events enterprise downloads removes)
-                      )
-                    {
+                    my @attribs =
+                      qw(total_opers total_time ts_time vis_events nonvis_events enterprise downloads removes);
+                    my $counter = 1;
+
+                    foreach my $attrib (@attribs) {
 
                         $rows{$date}->{$timestamp}->{greatest}->{$attrib} =
-                          $node{$attrib}
-                          if ( $node{$attrib} >
+                          $fields[$counter]
+                          if ( $fields[$counter] >
                             $rows{$date}->{$timestamp}->{greatest}->{$attrib} );
+
+                        $counter++;
+
+                    }
+
+                    if ($export) {
+
+                        if ( exists( $last_time{$current_time} ) ) {
+
+                            $last_time{$current_time}->{total_time} =
+                              $fields[2];
+                            $last_time{$current_time}->{ts_time} = $fields[3];
+
+                            my ( $date, $timestamp ) =
+                              split( /\s/, $current_time );
+
+                            print $times_out join( ",",
+                                $date,
+                                $timestamp,
+                                $last_time{$current_time}->{vis_check_time},
+                                $last_time{$current_time}->{dx_parse_time},
+                                $last_time{$current_time}->{total_time},
+                                $last_time{$current_time}->{ts_time} ),
+                              "\n";
+
+                            delete( $last_time{$current_time} );
+
+                        }
+                        else {
+
+                            warn "could not find matching of timestamp\n";
+
+                        }
+
+                        my ( $date, $timestamp ) = split( /\s/, $current_time );
+
+                        # removing time data from the fields
+                        splice( @fields, 2, 1 );
+                        splice( @fields, 2, 1 )
+                          ;    #array was reduced in number of items
+
+                        print $opers_out
+                          join( ',', $date, $timestamp, @fields ), "\n";
 
                     }
 
@@ -185,6 +263,13 @@ foreach my $file (@files) {
 }
 
 print "Finished reading log files\n";
+
+if ($export) {
+
+    close($opers_out);
+    close($times_out);
+
+}
 
 if ( keys(%rows) ) {
 
@@ -289,14 +374,14 @@ print "Finished\n";
 # subs
 
 # this sub will get the first N highest values
-# :TODO:05-06-2012:arfreitas: too many parameters, items_ref should be a hash to avoid confusion with items order
 sub first_high {
 
     my $day       = shift;    #string
     my $rows_ref  = shift;    #hash ref
     my $times_ref = shift;    #array ref with ordered times
     my $first     = shift;    #integer
-    my $items_ref = shift;    #array ref with performance itens to be evaluated
+    my $items_ref =
+      shift;    #array ref with performance items name to be evaluated
 
     my %data;
 
@@ -361,10 +446,6 @@ sub first_high {
 
     }
 
-    my @dx_parse_time;
-    my @ts_time;
-    my @vis_check_time;
-
     foreach my $timestamp (@sorted_new_times) {
 
         foreach my $item ( @{$items_ref} ) {
@@ -410,6 +491,7 @@ sub gen_img {
 
 sub gen_times_graph {
 
+    # [ \@times, \@dx_parse_time, \@ts_time, \@vis_check_time ];
     my $data_ref  = shift;
     my $times_img = shift;
     my $input_dir = shift;
@@ -455,8 +537,6 @@ sub gen_opers_graph {
         bgclr             => 'white',
         logo              => 'perlpowered.png',
         logo_position     => 'UR'
-
-          #        y_max_value       => 1200
     ) or die $graph_opers->error();
 
     $graph_opers->set_legend(
@@ -485,8 +565,9 @@ Parses Txnrouter log files and generate performance graphics from their data
 
 Options:
 
-	--input: input directory
+	--input: input directory (required)
 	--max: maximum highest value
+	--export: if enabled, will create text files with the performance data parsed
 	--help: brief help message
 	--version: version information about the program
 
@@ -514,7 +595,37 @@ Maximum highest value to consider to generate the graphics. This parameter is op
 
 perl_txnrouter is a Perl script to parse Siebel Transaction Router log files with performance information and produce graphic images about the values recovered.
 
+When trying to identify performance issues with Siebel Transaction Router, it is possible to change the log levels of the component to generate performance information. 
+This information can lead to huge log files (measured in Mb or even Gb) that are just too hard to have information checked with a common text editor.
+
+This program was created to parse those log files, looking for performance information and generating two line charts:
+
+=over
+
+=item *
+
+one with information about time taken to execute tasks in a given timestamp
+
+=item *
+
+one with information about the number of operations in a given timestamp
+
+=back
+
+Each point in those charts mean the highest value found in that timestamp (not all values will be show in the chart).
+
+When the amount of information is too large to fit in a chart, the program can accept a parameter to show only N highest values found in the log files. 
+Please check the command line help for more information.
+
+If desired, the parsed data can be exported to CSV files, which can be latter easily imported into programs as Microsoft Excel or R for statistics analysis. This is useful, 
+for example, when is desired to have more information that the one generated automatically by the program (as charts).
+
+With this information, the user can have a hint of when the component started taking too much time to route information and/or have too much operations 
+to execute and compare with measures taken from the servers (like CPU, memory and network usage by time).
+
 This program is part of Siebel GNU Tools.
+
+=head1 COPYRIGHT
 
 This software is copyright (c) 2012 of Alceu Rodrigues de Freitas Junior, glasswalk3r@yahoo.com.br, licensed under GPL v3
 
