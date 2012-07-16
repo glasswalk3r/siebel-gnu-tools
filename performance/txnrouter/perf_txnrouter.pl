@@ -24,6 +24,7 @@
 use warnings;
 use strict;
 use GD::Graph::lines;
+use GD::Graph::histogram;
 use Getopt::Long qw(:config auto_version auto_help);
 use File::Spec;
 use Pod::Usage;
@@ -46,8 +47,6 @@ opendir( my $dir, $input_dir ) or die "Cannot read directory $input_dir: $!\n";
 my @files = readdir($dir);
 close($dir);
 
-my %rows;
-
 # pre-compiled regexes to improve performance
 my $perf_regex           = qr/^Performance\tPerformance\t\d/;
 my $header_regex         = qr/Node\sName\|Total\sOpers.*/;
@@ -60,7 +59,7 @@ my $times_out;
 
 if ($export) {
 
-	print "Exporting data is enabled\n";
+    print "Exporting data is enabled\n";
 
     my $opers_file = 'operations.csv';
     my $times_file = 'times.csv';
@@ -76,6 +75,9 @@ if ($export) {
 "Date,Time,NodeName,TotalOpers,VisEvents,NonVisEvents,Enterprise,Downloads,Removes\n";
 
 }
+
+my %rows;
+my %total_times;
 
 foreach my $file (@files) {
 
@@ -125,16 +127,16 @@ foreach my $file (@files) {
                         vis_check_time => 0,
                         dx_parse_time  => 0,
                         total_opers    => 0,
-                        total_time     => 0,
                         ts_time        => 0,
                         vis_events     => 0,
                         nonvis_events  => 0,
                         enterprise     => 0,
                         downloads      => 0,
                         removes        => 0
-
                     }
                 };
+
+                $total_times{$date} = [];
 
             }
 
@@ -191,8 +193,11 @@ foreach my $file (@files) {
 # Node Name|Total Opers|Time|TS Time|VisEvents|NonVisEvents|Enterprise|Downloads|Removes
 
                     my @attribs =
-                      qw(total_opers total_time ts_time vis_events nonvis_events enterprise downloads removes);
+                      qw(total_opers ts_time vis_events nonvis_events enterprise downloads removes);
                     my $counter = 1;
+
+# total time is usually to large to compare to others times, using a histogram for it
+                    push( @{ $total_times{$date} }, $fields[2] );
 
                     foreach my $attrib (@attribs) {
 
@@ -277,23 +282,8 @@ if ( keys(%rows) ) {
 
     foreach my $day ( keys(%rows) ) {
 
-        my $times_img = "times_$day.png";
-        my $opers_img = "opers_$day.png";
-
         my @times = sort( keys( %{ $rows{$day} } ) );
         my $total = ( scalar(@times) ) - 1;
-
-        #time spent in activities
-        my @dx_parse_time;
-        my @ts_time;
-        my @vis_check_time;
-
-        #number of operations
-        my @downloads;
-        my @enterprise;
-        my @nonvis_events;
-        my @removes;
-        my @vis_events;
 
         my $times_data_ref;
         my $opers_data_ref;
@@ -315,6 +305,18 @@ if ( keys(%rows) ) {
 
         }
         else {
+
+            #time spent in activities
+            my @dx_parse_time;
+            my @ts_time;
+            my @vis_check_time;
+
+            #number of operations
+            my @downloads;
+            my @enterprise;
+            my @nonvis_events;
+            my @removes;
+            my @vis_events;
 
             foreach my $time (@times) {
 
@@ -345,19 +347,29 @@ if ( keys(%rows) ) {
 
                 }
 
-                $times_data_ref =
-                  [ \@times, \@dx_parse_time, \@ts_time, \@vis_check_time ];
-                $opers_data_ref = [
-                    \@times,         \@downloads, \@enterprise,
-                    \@nonvis_events, \@removes,   \@vis_events
-                ];
+                $times_data_ref = {
+                    times          => \@times,
+                    dx_parse_time  => \@dx_parse_time,
+                    ts_time        => \@ts_time,
+                    vis_check_time => \@vis_check_time
+                };
+                $opers_data_ref = {
+                    times         => \@times,
+                    downloads     => \@downloads,
+                    enterprise    => \@enterprise,
+                    nonvis_events => \@nonvis_events,
+                    removes       => \@removes,
+                    vis_events    => \@vis_events
+                };
 
             }
 
         }
 
-        gen_times_graph( $times_data_ref, $times_img, $input_dir, $day );
-        gen_opers_graph( $opers_data_ref, $opers_img, $input_dir, $day );
+        gen_total_time( $total_times{$day}, "total_time_$day.png", $input_dir,
+            $day );
+        gen_times_graph( $times_data_ref, "times_$day.png", $input_dir, $day );
+        gen_opers_graph( $opers_data_ref, "opers_$day.png", $input_dir, $day );
 
     }
 
@@ -465,15 +477,9 @@ sub first_high {
 
     }
 
-    my @return_data = ( \@sorted_new_times );
+    $new_data{times} = \@sorted_new_times;
 
-    foreach my $item ( @{$items_ref} ) {
-
-        push( @return_data, $new_data{$item} );
-
-    }
-
-    return \@return_data;
+    return \%new_data;
 
 }
 
@@ -489,10 +495,36 @@ sub gen_img {
 
 }
 
+sub gen_total_time {
+
+    my $total_time = shift;    # array ref
+    my $img_name   = shift;
+    my $input_dir  = shift;
+    my $day        = shift;
+
+    my $graph = new GD::Graph::histogram( 1440, 900 );
+
+    $graph->set(
+        x_label           => 'Total time (ms)',
+        y_label           => 'Percentage',
+        title             => "Histogram of total node processing time at $day",
+        x_labels_vertical => 1,
+        bar_spacing       => 0,
+        transparent       => 0,
+        histogram_type    => 'percentage',
+        bgclr             => 'white',
+        logo              => 'perlpowered.png',
+        logo_position     => 'UR'
+    ) or warn $graph->error;
+
+    my $gd = $graph->plot($total_time) or die $graph->error;
+    gen_img( $gd, File::Spec->catfile( $input_dir, $img_name ) );
+
+}
+
 sub gen_times_graph {
 
-    # [ \@times, \@dx_parse_time, \@ts_time, \@vis_check_time ];
-    my $data_ref  = shift;
+    my $data_ref  = shift;    # hash ref
     my $times_img = shift;
     my $input_dir = shift;
     my $day       = shift;
@@ -513,7 +545,12 @@ sub gen_times_graph {
     $graph_times->set_legend( 'DX Parse Time',
         'TS Time', 'Visibility Check Time' );
 
-    my $gd = $graph_times->plot($data_ref) or die $graph_times->error();
+    my $gd = $graph_times->plot(
+        [
+            $data_ref->{times},   $data_ref->{dx_parse_time},
+            $data_ref->{ts_time}, $data_ref->{vis_check_time}
+        ]
+    ) or die $graph_times->error();
 
     gen_img( $gd, File::Spec->catfile( $input_dir, $times_img ) );
 
@@ -521,7 +558,7 @@ sub gen_times_graph {
 
 sub gen_opers_graph {
 
-    my $data_ref  = shift;
+    my $data_ref  = shift;    #hash ref
     my $opers_img = shift;
     my $input_dir = shift;
     my $day       = shift;
@@ -545,7 +582,13 @@ sub gen_opers_graph {
         'Visibility Events'
     );
 
-    my $gd = $graph_opers->plot($data_ref) or die $graph_opers->error();
+    my $gd = $graph_opers->plot(
+        [
+            $data_ref->{times},      $data_ref->{downloads},
+            $data_ref->{enterprise}, $data_ref->{nonvis_events},
+            $data_ref->{removes},    $data_ref->{vis_events}
+        ]
+    ) or die $graph_opers->error();
 
     gen_img( $gd, File::Spec->catfile( $input_dir, $opers_img ) );
 
