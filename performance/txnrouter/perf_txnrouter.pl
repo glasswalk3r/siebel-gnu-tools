@@ -72,7 +72,7 @@ if ($export) {
     open( $opers_out, '>', $opers_file )
       or die "Cannot created $opers_file: $!\n";
     print $opers_out
-"Date,Time,NodeName,TotalOpers,VisEvents,NonVisEvents,Enterprise,Downloads,Removes\n";
+"Date,Time,NodeName,TotalOpers,Time,TS Time,VisEvents,NonVisEvents,Enterprise,Downloads,Removes\n";
 
 }
 
@@ -121,19 +121,16 @@ foreach my $file (@files) {
 
             unless ( exists( $rows{$date}->{$timestamp} ) ) {
 
-# TODO the greatest key is not necessary anymore, remove it and use a simple hash
                 $rows{$date}->{$timestamp} = {
-                    greatest => {
-                        vis_check_time => 0,
-                        dx_parse_time  => 0,
-                        total_opers    => 0,
-                        ts_time        => 0,
-                        vis_events     => 0,
-                        nonvis_events  => 0,
-                        enterprise     => 0,
-                        downloads      => 0,
-                        removes        => 0
-                    }
+                    vis_check_time => 0,
+                    dx_parse_time  => 0,
+                    total_opers    => 0,
+                    ts_time        => 0,
+                    vis_events     => 0,
+                    nonvis_events  => 0,
+                    enterprise     => 0,
+                    downloads      => 0,
+                    removes        => 0
                 };
 
                 $total_times{$date} = [];
@@ -153,15 +150,13 @@ foreach my $file (@files) {
                     my @fields = split( /\;/, $data );
 
 # :TODO:09/08/2011 15:51:07:: this should be refactored since is not general usage
-                    $rows{$date}->{$timestamp}->{greatest}->{vis_check_time} =
-                      $fields[0]
-                      if ( $fields[0] > $rows{$date}->{$timestamp}->{greatest}
-                        ->{vis_check_time} );
+                    $rows{$date}->{$timestamp}->{vis_check_time} = $fields[0]
+                      if ( $fields[0] >
+                        $rows{$date}->{$timestamp}->{vis_check_time} );
 
-                    $rows{$date}->{$timestamp}->{greatest}->{dx_parse_time} =
-                      $fields[1]
-                      if ( $fields[1] > $rows{$date}->{$timestamp}->{greatest}
-                        ->{dx_parse_time} );
+                    $rows{$date}->{$timestamp}->{dx_parse_time} = $fields[1]
+                      if ( $fields[1] >
+                        $rows{$date}->{$timestamp}->{dx_parse_time} );
 
                     if ($export) {
 
@@ -201,10 +196,10 @@ foreach my $file (@files) {
 
                     foreach my $attrib (@attribs) {
 
-                        $rows{$date}->{$timestamp}->{greatest}->{$attrib} =
+                        $rows{$date}->{$timestamp}->{$attrib} =
                           $fields[$counter]
                           if ( $fields[$counter] >
-                            $rows{$date}->{$timestamp}->{greatest}->{$attrib} );
+                            $rows{$date}->{$timestamp}->{$attrib} );
 
                         $counter++;
 
@@ -240,11 +235,6 @@ foreach my $file (@files) {
                         }
 
                         my ( $date, $timestamp ) = split( /\s/, $current_time );
-
-                        # removing time data from the fields
-                        splice( @fields, 2, 1 );
-                        splice( @fields, 2, 1 )
-                          ;    #array was reduced in number of items
 
                         print $opers_out
                           join( ',', $date, $timestamp, @fields ), "\n";
@@ -323,22 +313,17 @@ if ( keys(%rows) ) {
                 if ( exists( $rows{$day}->{$time} ) ) {
 
                     push( @dx_parse_time,
-                        $rows{$day}->{$time}->{greatest}->{dx_parse_time} );
-                    push( @ts_time,
-                        $rows{$day}->{$time}->{greatest}->{ts_time} );
+                        $rows{$day}->{$time}->{dx_parse_time} );
+                    push( @ts_time, $rows{$day}->{$time}->{ts_time} );
                     push( @vis_check_time,
-                        $rows{$day}->{$time}->{greatest}->{vis_check_time} );
+                        $rows{$day}->{$time}->{vis_check_time} );
 
-                    push( @downloads,
-                        $rows{$day}->{$time}->{greatest}->{downloads} );
-                    push( @enterprise,
-                        $rows{$day}->{$time}->{greatest}->{enterprise} );
+                    push( @downloads,  $rows{$day}->{$time}->{downloads} );
+                    push( @enterprise, $rows{$day}->{$time}->{enterprise} );
                     push( @nonvis_events,
-                        $rows{$day}->{$time}->{greatest}->{nonvis_events} );
-                    push( @removes,
-                        $rows{$day}->{$time}->{greatest}->{removes} );
-                    push( @vis_events,
-                        $rows{$day}->{$time}->{greatest}->{vis_events} );
+                        $rows{$day}->{$time}->{nonvis_events} );
+                    push( @removes,    $rows{$day}->{$time}->{removes} );
+                    push( @vis_events, $rows{$day}->{$time}->{vis_events} );
 
                 }
                 else {
@@ -403,7 +388,7 @@ sub first_high {
 
             foreach my $item ( @{$items_ref} ) {
 
-                my $value = $rows_ref->{$day}->{$time}->{greatest}->{$item};
+                my $value = $rows_ref->{$day}->{$time}->{$item};
 
                 $data{$item}->{$time} = $value;
 
