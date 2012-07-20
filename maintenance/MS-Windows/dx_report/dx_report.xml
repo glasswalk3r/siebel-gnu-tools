@@ -1,0 +1,14 @@
+<dxReport>
+	<OLEDB>
+		<datasource>foobar</datasource>
+		<provider>msdaora</provider>
+		<!-- this is NOT the login, but part of the connection string required by the OLEDB provider-->
+		<loginString>User Id</loginString>
+		<!-- this is NOT the password, but part of the connection string required by the OLEDB provider-->
+		<passwordString>Password</passwordString>
+	</OLEDB>
+	<!-- this is the Powershell script that will read the DX files inside each OUTBOX folder for each one of the active Siebel Remote nodes -->
+	<scriptFile>read_dir.ps1</scriptFile>
+	<!-- this is the folder where all nodes of Siebel Remote are located -->
+	<siebelInstallPath>sea752\siebsrvr\DOCKING</siebelInstallPath>
+</dxReport>
