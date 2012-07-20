@@ -11,8 +11,9 @@ WriteMakefile(
     'NO_META'  => 1,
     'MIN_PERL_VERSION' => 5.010000,
     PREREQ_PM          => {
-        GD::Graph::lines => 1.15,
-        Pod::Usage       => 1.36,
+        GD::Graph::lines     => 1.15,
+        Pod::Usage           => 1.36,
+        GD::Graph::histogram => 1.1
     },
     NO_MYMETA => 1
 );
