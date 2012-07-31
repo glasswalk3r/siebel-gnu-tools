@@ -1,0 +1,35 @@
+﻿<compSRF>
+    <email>
+        <SMTPServer>smtp.foobar.org</SMTPServer>
+        <!--address must be separated by comma-->
+        <sender>compSRF@foobar.org</sender>
+        <addressee>alceu@foobar.org</addressee>
+    </email>
+    <logging>
+        <log4netDLL>D:\temp\log4net.dll</log4netDLL>
+        <logPattern>[%date] %-5level - %message%newline</logPattern>
+    </logging>
+    <languagePacks>
+        <lang>ENU</lang>
+        <lang>PTB</lang>
+        <lang>ESN</lang>
+    </languagePacks>
+    <!-- order here is important to stop/start the services correctly -->
+    <windowsServices>
+        <service>W3SVC</service>
+        <service>siebsrvr_SIEBEL_foobar</service>
+    </windowsServices>
+    <!-- in seconds -->
+    <timeToWait>60</timeToWait>
+    <SiebelTools>
+        <root>D:\sea\tools</root>
+        <cfg>\bin\enu\tools.cfg</cfg>
+        <bin>\bin\siebdev.exe</bin>
+        <dataSource>ServerDataSrc</dataSource>
+        <SRF>siebel_new_core.srf</SRF>
+        <siebelRepository>Siebel Repository</siebelRepository>
+        <user>SADMIN</user>
+        <password>XXXX</password>
+        <serverRoot>D:\sea\siebsrvr\OBJECTS</serverRoot>
+    </SiebelTools>
+</compSRF>
