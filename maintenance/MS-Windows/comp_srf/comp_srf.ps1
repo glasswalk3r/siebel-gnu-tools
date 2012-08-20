@@ -75,6 +75,25 @@ function restoreServices {
 
 }
 
+function getBackupDir {
+    param( [Parameter(Position = 0, Mandatory = $true, ValueFromPipeline = $false)] [string] $format,
+           [Parameter(Position = 0, Mandatory = $true, ValueFromPipeline = $false)] [string] $root,
+           [Parameter(Position = 0, Mandatory = $true, ValueFromPipeline = $false)] [object] $date )
+
+    $formatOptions =  $format -split "_"
+    
+    $options = @()
+    
+    foreach ( $option in $formatOptions ) {
+    
+        $options += $started.($option)
+    
+    }
+    
+    ($root + "\" + ( $options -join "_" ))
+
+}
+
 try {
 
     $started = Get-Date
@@ -88,22 +107,34 @@ try {
     
     $pids = [System.Collections.Hashtable] @{}
     
+    $srfBackupDir = getBackupDir -format $config.compSRF.SiebelTools.backup.srfSubdirFormat -root $config.compSRF.SiebelTools.backup.dirRoot -date $started
+    New-Item -type 'directory' $srfBackupDir
+    
+    $srfToCopy = @()
+    
     foreach ($lang in $config.compSRF.languagePacks.GetElementsByTagName("lang")) {
+    
+        if ( $lang.HasAttribute("srfFilename") ) {
 
-        $destinationSRF = $config.compSRF.SiebelTools.serverRoot + "\" + $lang.InnerText + "\" + $config.compSRF.SiebelTools.SRF
-        $jobName = $lang.InnerText + " SRF full compilation"
+            $destinationSRF = $config.compSRF.SiebelTools.serverRoot + "\" + $lang.InnerText + "\" + $lang.GetAttribute("srfFilename")
+            $jobName = $lang.InnerText + " SRF full compilation"
+        
+        } else {
+        
+            throw "Cannot find SRF filename attribute in the configuration file"
+        
+        }
         
         $options = "/c " + $config.compSRF.SiebelTools.root + $config.compSRF.SiebelTools.cfg + " /d " + $config.compSRF.SiebelTools.dataSource + " /u " 
         $options += $config.compSRF.SiebelTools.user + " /p " + $config.compSRF.SiebelTools.password
         $options += " /bc '" + $config.compSRF.SiebelTools.siebelRepository + "' " + $destinationSRF + " /tl " + $lang.InnerText
     
-        #call %TOOLS_ROOT%\BIN\siebdev.exe /c "%TOOLS_ROOT%\bin\enu\tools.cfg" /d %DATASRC% /u %USUARIO% /p %SENHA% /bc "%SIEBEL_REPOSITORY%" "%CLIENT_ROOT%\OBJECTS\%1\siebel_new_core_%1.srf" /TL %2
-        
         $process = (Start-Process -PassThru -FilePath $toolsBin -ArgumentList $options)
         
-        Write-Host $process.ProcessName $process.Id "started"
+        Write-Host $process.ProcessName "for" $jobName "with" $process.Id "started"
         
         $pids.Add($process.Id, $process)
+        $srfToCopy = $srfToCopy + $destinationSRF
         
     }
     
@@ -123,11 +154,18 @@ try {
 
         }
         
-        Start-Sleep -Milliseconds 500      
+        Start-Sleep -Seconds $config.compSRF.SiebelTools.timeToWait
        
     }
     
     write-host "copying SRF files"
+    
+    foreach ($srf in $srfToCopy ) {
+
+        Copy-Item $destinationSRF $srfBackupDir -Verbose    
+    
+    }
+    
     restoreServices -services $config.compSRF.windowsServices.GetElementsByTagName("service") -waitTime $config.compSRF.timeToWait
     $finished = Get-Date
     

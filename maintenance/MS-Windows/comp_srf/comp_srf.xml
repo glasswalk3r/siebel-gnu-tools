@@ -10,9 +10,9 @@
         <logPattern>[%date] %-5level - %message%newline</logPattern>
     </logging>
     <languagePacks>
-        <lang>ENU</lang>
-        <lang>PTB</lang>
-        <lang>ESN</lang>
+        <lang srfFilename="siebel_new_core_enu.srf">ENU</lang>
+        <lang srfFilename="siebel_new_core_ptb.srf">PTB</lang>
+        <lang srfFilename="siebel_new_core_esn.srf">ESN</lang>
     </languagePacks>
     <!-- order here is important to stop/start the services correctly -->
     <windowsServices>
@@ -20,16 +20,22 @@
         <service>siebsrvr_SIEBEL_foobar</service>
     </windowsServices>
     <!-- in seconds -->
-    <timeToWait>60</timeToWait>
+    <timeToWait>120</timeToWait>
     <SiebelTools>
         <root>D:\sea\tools</root>
         <cfg>\bin\enu\tools.cfg</cfg>
         <bin>\bin\siebdev.exe</bin>
         <dataSource>ServerDataSrc</dataSource>
-        <SRF>siebel_new_core.srf</SRF>
         <siebelRepository>Siebel Repository</siebelRepository>
         <user>SADMIN</user>
         <password>XXXX</password>
         <serverRoot>D:\sea\siebsrvr\OBJECTS</serverRoot>
+        <!-- time to sleep before checking the Siebel Tools processes, in seconds -->
+        <timeToWait>120</timeToWait>
+        <backup>
+            <dirRoot>D:\srf</dirRoot>
+            <!-- use the same methods available to get-date object. Separator must be underscore as in "Day_Month_Year_DayOfWeek" -->
+            <srfSubdirFormat>Day_Month_Year_DayOfWeek</srfSubdirFormat>
+        </backup>
     </SiebelTools>
 </compSRF>
