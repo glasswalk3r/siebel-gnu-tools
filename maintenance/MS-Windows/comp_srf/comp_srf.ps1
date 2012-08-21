@@ -108,7 +108,16 @@ try {
     $pids = [System.Collections.Hashtable] @{}
     
     $srfBackupDir = getBackupDir -format $config.compSRF.SiebelTools.backup.srfSubdirFormat -root $config.compSRF.SiebelTools.backup.dirRoot -date $started
-    New-Item -type 'directory' $srfBackupDir
+    
+    if ( Test-Path $srfBackupDir ) {
+    
+        Write-Host $srfBackupDir "already exists"
+    
+    } else {
+    
+        New-Item -type 'directory' $srfBackupDir    
+    
+    }
     
     $srfToCopy = @()
     
@@ -117,24 +126,24 @@ try {
         if ( $lang.HasAttribute("srfFilename") ) {
 
             $destinationSRF = $config.compSRF.SiebelTools.serverRoot + "\" + $lang.InnerText + "\" + $lang.GetAttribute("srfFilename")
+            $srfToCopy = $srfToCopy + $destinationSRF
             $jobName = $lang.InnerText + " SRF full compilation"
+            
+            $options = "/c " + $config.compSRF.SiebelTools.root + $config.compSRF.SiebelTools.cfg + " /d " + $config.compSRF.SiebelTools.dataSource + " /u " 
+            $options += $config.compSRF.SiebelTools.user + " /p " + $config.compSRF.SiebelTools.password
+            $options += " /bc '" + $config.compSRF.SiebelTools.siebelRepository + "' " + $destinationSRF + " /tl " + $lang.InnerText
+        
+            $process = (Start-Process -PassThru -FilePath $toolsBin -ArgumentList $options)
+            
+            Write-Host $process.ProcessName "for" $jobName "with PID =" $process.Id "started"
+            
+            $pids.Add($process.Id, $process)
         
         } else {
         
             throw "Cannot find SRF filename attribute in the configuration file"
         
         }
-        
-        $options = "/c " + $config.compSRF.SiebelTools.root + $config.compSRF.SiebelTools.cfg + " /d " + $config.compSRF.SiebelTools.dataSource + " /u " 
-        $options += $config.compSRF.SiebelTools.user + " /p " + $config.compSRF.SiebelTools.password
-        $options += " /bc '" + $config.compSRF.SiebelTools.siebelRepository + "' " + $destinationSRF + " /tl " + $lang.InnerText
-    
-        $process = (Start-Process -PassThru -FilePath $toolsBin -ArgumentList $options)
-        
-        Write-Host $process.ProcessName "for" $jobName "with" $process.Id "started"
-        
-        $pids.Add($process.Id, $process)
-        $srfToCopy = $srfToCopy + $destinationSRF
         
     }
     
@@ -162,7 +171,7 @@ try {
     
     foreach ($srf in $srfToCopy ) {
 
-        Copy-Item $destinationSRF $srfBackupDir -Verbose    
+        Copy-Item $srf $srfBackupDir -Verbose    
     
     }
     
