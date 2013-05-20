@@ -1,0 +1,6 @@
+Revision history for Perl extension Siebel::LocalDB::Dumper.
+
+0.01  Mon May 20 17:31:33 2013
+	- original version; created by h2xs 1.23 with options
+		-A -X -n Siebel::LocalDB::Dumper
+

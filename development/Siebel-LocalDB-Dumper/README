@@ -1,0 +1,38 @@
+Siebel-LocalDB-Dumper version 0.01
+==================================
+
+This script will connect to a Siebel local database and dump it's contents to a SQLite database with the corresponding schema and data.
+
+INSTALLATION
+
+To install this module type the following:
+
+   perl Makefile.PL
+   make
+   make test
+   make install
+
+DEPENDENCIES
+
+See Makefile.PL PREREQ_PM section for details.
+
+COPYRIGHT AND LICENCE
+
+This software is copyright (c) 2013 of Alceu Rodrigues de Freitas Junior (arfreitas@cpan.org).
+
+This file is part of Siebel GNU Tools project.
+
+Siebel GNU Tools is free software: you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation, either version 3 of the License, or
+(at your option) any later version.
+
+Siebel GNU Tools is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License
+along with Siebel COM.  If not, see http://www.gnu.org/licenses/.
+
+
