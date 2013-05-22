@@ -1,9 +1,11 @@
 use warnings;
 use strict;
 use Getopt::Std;
-use Siebel::LocalDB::Dumper;
+use Siebel::LocalDB::Dumper qw(:all);
 use Term::Pulse;
 use feature qw(say);
+
+$SIG{INT} = 'CLEANUP';
 
 sub HELP_MESSAGE {
 
@@ -57,9 +59,10 @@ my $siebel_dbh = conn_siebel( $opts{d}, $opts{u}, $opts{p} );
 say "Creating corresponding SQLite new database in $opts{s}";
 my $sqlite_dbh = conn_sqlite( $opts{s} );
 
-pulse_start( name => 'Dumping content...', rotate => 1, time => 1 );
+#pulse_start( name => 'Dumping content...', rotate => 1, time => 1 );
 my $result = dump_all( $siebel_dbh, $sqlite_dbh );
-pulse_stop();
+
+#pulse_stop();
 
 if ($result) {
 
@@ -72,3 +75,18 @@ else {
 
 }
 
+sub CLEANUP {
+
+    say 'Caught Interrupt, aborting execution';
+
+    foreach my $dbh ( $siebel_dbh, $sqlite_dbh ) {
+
+        close_all($dbh) if ( defined($dbh) );
+
+    }
+
+    #pulse_stop();
+
+	exit(1);
+
+}

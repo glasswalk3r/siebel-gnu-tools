@@ -10,7 +10,12 @@ WriteMakefile(
         'Term::Pulse' => 0.04,
         'DBI'         => 1.623,
         'DBD::ODBC'   => 1.43,
-        'DBD::SQLite' => 1.37
+        'DBD::SQLite' => 1.37,
+        'Moose'       => 2.0801
+    },
+    BUILD_REQUIRES => {
+        'Test::Pod'           => 1.22,
+        'Test::Pod::Coverage' => 1.08
     },
     (
         $] >= 5.005
@@ -18,7 +23,7 @@ WriteMakefile(
           (
             ABSTRACT_FROM =>
               'lib/Siebel/LocalDB/Dumper.pm',    # retrieve abstract from module
-            AUTHOR => 'A. U. Thor <a.u.thor@a.galaxy.far.far.away>'
+            AUTHOR => 'Alceu Rodrigues de Freitas Junior <arfreitas@cpan.org>'
           )
         : ()
     ),

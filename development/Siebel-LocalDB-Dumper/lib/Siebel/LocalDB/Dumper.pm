@@ -3,27 +3,20 @@ package Siebel::LocalDB::Dumper;
 use 5.016003;
 use strict;
 use warnings;
-use feature qw(say switch);
+use feature qw(switch);
 use DBI qw(:utils);
-use DateTime;
 use Siebel::LocalDB::Dumper::Column;
 
 require Exporter;
 
 our @ISA = qw(Exporter);
 
-# Items to export into callers namespace by default. Note: do not export
-# names by default without a very good reason. Use EXPORT_OK instead.
-# Do not simply export all your public functions/methods/constants.
-
-# This allows declaration	use Siebel::LocalDB::Dumper ':all';
-# If you do not need this, moving things directly into @EXPORT or @EXPORT_OK
-# will save memory.
-our %EXPORT_TAGS = ( 'all' => [qw(conn_siebel conn_sqlite dump_all version)] );
+our %EXPORT_TAGS =
+  ( 'all' => [qw(conn_siebel conn_sqlite dump_all version close_all)] );
 
 our @EXPORT_OK = ( @{ $EXPORT_TAGS{'all'} } );
 
-our @EXPORT = qw(conn_siebel conn_sqlite dump_all version);
+our @EXPORT = qw(conn_siebel conn_sqlite dump_all version close_all);
 
 our $VERSION = '0.01';
 
@@ -39,8 +32,11 @@ sub conn_siebel {
     my $user     = shift;
     my $password = shift;
 
-    my $dbh = DBI->connect( 'dbi:ODBC:SSD Local Db default instance',
-        'SLH2170', 'JOWC6L2NFR', { RaiseError => 1, AutoCommit => 0 } )
+    my $db_name = 'dbi:ODBC:' . $dsn;
+
+    my $dbh =
+      DBI->connect( $db_name,
+        $user, $password, { RaiseError => 1, AutoCommit => 0 } )
       or die "Failed to connect - $DBI::errstr";
 
     $dbh->{LongReadLen} = 512 * 1024;
@@ -53,7 +49,8 @@ sub conn_sqlite {
 
     my $sqlite_db_name = shift;
 
-    my $dbh = DBI->connect( "dbi:SQLite:dbname=$sqlite_db_name", '', '' );
+    my $dbh = DBI->connect( "dbi:SQLite:dbname=$sqlite_db_name",
+        '', '', { RaiseError => 1 } );
     $dbh->do('PRAGMA cache_size = 500000');
     $dbh->do('PRAGMA synchronous = OFF');
 
@@ -69,7 +66,7 @@ sub close_all {
 
         foreach my $sth ( @{ $dbh->{ChildHandles} } ) {
 
-            $sth->finish();
+            $sth->finish() if ( defined($sth) );
 
         }
 
@@ -105,50 +102,26 @@ and ( ( name like 'S_%' ) or ( name like 'CX_%' ) )};
 
             my $table = $row->[0];
 
-            next if $table eq 'S_PER_FCST_D';
+            my $columns_ref;
 
-            say "working with $table";
+            if ( $table eq 'S_PER_FCST_D' ) {
+
+# :WORKAROUND:22/05/2013 17:41:15:: S_PER_FCST_D for some reason returns duplicated columns when using database "introspection", both
+# with Perl DBI and Java JDBC
+                $columns_ref = _S_PER_FCST_D( $siebel_dbh, $schema, $table );
+                next;
+
+            }
+            else {
+
+                $columns_ref = _get_col_data( $siebel_dbh, $schema, $table );
+
+            }
 
             $create_ddl = 'CREATE TABLE IF NOT EXISTS ' . $table . '(';
 
-            my $tbl_info =
-              $siebel_dbh->column_info( undef, $schema, $table, '%' );
-
-            my @columns;
-
-            while ( my $tbl_row = $tbl_info->fetchrow_hashref() ) {
-
-# :WORKAROUND:27/02/2013 18:26:06:: double quotes are necessary to escape columns names equal to SQLite keywords
-                push(
-                    @columns,
-                    Column->new(
-                        {
-                            name           => $tbl_row->{COLUMN_NAME},
-                            orig_type      => $tbl_row->{TYPE_NAME},
-                            decimal_digits => (
-                                ( $tbl_row->{DECIMAL_DIGITS} )
-                                ? $tbl_row->{DECIMAL_DIGITS}
-                                : 0
-                            ),
-                            nullable => ( $tbl_row->{IS_NULLABLE} eq 'NO' ) ? 0
-                            : 1
-                        }
-                    )
-                );
-
-            }
-
-            $tbl_info->finish();
-
-            my @columns_names;
-
-            foreach my $column (@columns) {
-
-                push( @columns_names, $column->name() );
-
-            }
-
-            $create_ddl .= join( ', ', ( map { $_->to_string() } @columns ) );
+            $create_ddl .=
+              join( ', ', ( map { $_->to_string() } @{$columns_ref} ) );
             $create_ddl .= ')';
 
             my $create_sth = $sqlite_dbh->prepare($create_ddl);
@@ -233,7 +206,7 @@ and ( ( name like 'S_%' ) or ( name like 'CX_%' ) )};
 
             my $source_query =
                 'SELECT '
-              . join( ', ', @columns_names )
+              . join( ', ', map { $_->name() } @{$columns_ref} )
               . ' FROM siebel.'
               . $table;
 
@@ -241,7 +214,7 @@ and ( ( name like 'S_%' ) or ( name like 'CX_%' ) )};
 
             my @quoted_columns;
 
-            foreach my $column (@columns) {
+            foreach my $column ( @{$columns_ref} ) {
 
                 push( @quoted_columns, $column->quoted_name() );
 
@@ -268,10 +241,10 @@ and ( ( name like 'S_%' ) or ( name like 'CX_%' ) )};
 
                 }
 
-                for ( my $i = 0 ; $i < scalar(@columns) ; $i++ ) {
+                for ( my $i = 0 ; $i < scalar( @{$columns_ref} ) ; $i++ ) {
 
                     $insert_sth->bind_param( ( $i + 1 ),
-                        $row->[$i], $columns[$i]->sql_type() );
+                        $row->[$i], $columns_ref->[$i]->sql_type() );
 
                 }
 
@@ -316,57 +289,239 @@ and ( ( name like 'S_%' ) or ( name like 'CX_%' ) )};
 
 }
 
-# Preloaded methods go here.
+sub _get_col_data {
+
+    my $dbh    = shift;
+    my $schema = shift;
+    my $table  = shift;
+
+    my $tbl_info = $dbh->column_info( undef, $schema, $table, '%' );
+
+    my @columns;
+
+    while ( my $tbl_row = $tbl_info->fetchrow_hashref() ) {
+
+        push(
+            @columns,
+            Siebel::LocalDB::Dumper::Column->new(
+                {
+                    name           => $tbl_row->{COLUMN_NAME},
+                    orig_type      => $tbl_row->{TYPE_NAME},
+                    decimal_digits => (
+                        ( $tbl_row->{DECIMAL_DIGITS} )
+                        ? $tbl_row->{DECIMAL_DIGITS}
+                        : 0
+                    ),
+                    nullable => ( $tbl_row->{IS_NULLABLE} eq 'NO' ) ? 0
+                    : 1
+                }
+            )
+        );
+
+    }
+
+    $tbl_info->finish();
+
+    return \@columns;
+
+}
+
+sub _S_PER_FCST_D {
+
+    my $dbh    = shift;
+    my $schema = shift;
+    my $table  = shift;
+
+    my $tbl_info = $dbh->column_info( undef, $schema, $table, '%' );
+
+    my @columns;
+
+    my %columns;
+
+# :WORKAROUND:22/05/2013 17:47:43:: hash autovivification should remove duplicated columns
+    while ( my $tbl_row = $tbl_info->fetchrow_hashref() ) {
+
+# :WORKAROUND:22/05/2013 17:49:23:: the columns DATA are not shown in Siebel Tools
+        next if ( $tbl_row->{COLUMN_NAME} =~ /^DATA\d{2}$/ );
+
+        $columns{ $tbl_row->{COLUMN_NAME} } = {
+            TYPE_NAME      => $tbl_row->{TYPE_NAME},
+            DECIMAL_DIGITS => $tbl_row->{DECIMAL_DIGITS},
+            IS_NULLABLE    => $tbl_row->{IS_NULLABLE}
+        };
+
+    }
+
+    foreach my $column_name ( keys(%columns) ) {
+
+        push(
+            @columns,
+            Siebel::LocalDB::Dumper::Column->new(
+                {
+                    name           => $column_name,
+                    orig_type      => $columns{$column_name}->{TYPE_NAME},
+                    decimal_digits => (
+                        ( $columns{column_name}->{DECIMAL_DIGITS} )
+                        ? $columns{column_name}->{DECIMAL_DIGITS}
+                        : 0
+                    ),
+                    nullable => ( $columns{column_name}->{IS_NULLABLE} eq 'NO' )
+                    ? 0
+                    : 1
+                }
+            )
+        );
+
+    }
+
+    $tbl_info->finish();
+
+    return \@columns;
+
+}
 
 1;
 __END__
-# Below is stub documentation for your module. You'd better edit it!
 
 =head1 NAME
 
-Siebel::LocalDB::Dumper - Perl extension for blah blah blah
+Siebel::LocalDB::Dumper - Perl extension for exporting Siebel Local database data to a SQLite database
 
 =head1 SYNOPSIS
 
-  use Siebel::LocalDB::Dumper;
-  blah blah blah
+    use Siebel::LocalDB::Dumper qw(:all);
+ 
+    say "Connecting to Siebel local database with DSN $opts{d}";
+    my $siebel_dbh = conn_siebel( $opts{d}, $opts{u}, $opts{p} );
+
+    say "Creating corresponding SQLite new database in $opts{s}";
+    my $sqlite_dbh = conn_sqlite( $opts{s} );
+
+    my $result = dump_all( $siebel_dbh, $sqlite_dbh );
+
+    if ($result) {
+
+        say "Finished: connect to $opts{s} to check results";
+
+    }
+    else {
+
+        say "Failed to create $opts{s}";
+
+    }
 
 =head1 DESCRIPTION
 
-Stub documentation for Siebel::LocalDB::Dumper, created by h2xs. It looks like the
-author of the extension was negligent enough to leave the stub
-unedited.
+Siebel::LocalDB::Dumper functions enables exporting database schema from a Siebel local database (a Sybase SQL Anywhere database) to SQLite database.
 
-Blah blah blah.
+Tables schema (including indexes) are recriated in a SQLite database that will created from scratch. Data from the tables is also copied.
 
-=head2 EXPORT
+The objective of Siebel::LocalDB::Dumper is enabling having Siebel data available in a more portable way, since SQLite is free software and available
+to much more OS plataforms.
 
-None by default.
+=head1 EXPORT
 
+=head2 conn_siebel
 
+Connects to Siebel and returns a L<DBI> database handler if the connection was successful.
+
+Expects the following parameters:
+
+=over
+
+=item 1.
+
+ODBC DSN name configured to connect to the Siebel local database.
+
+=item 2.
+
+The user login to connect to the local database.
+
+=item 3.
+
+The user password to connect to the local database.
+
+=back
+
+=head2 conn_sqlite
+
+Create and connect to a SQLite database, returning a L<DBI> database handler if sucessful.
+
+Expects a single paramater, the complete path to the file to be used for the SQLite database.
+
+=head2 dump_all
+
+Executes the database creation and data copy from Siebel local database to the corresponding SQLite database, returning true if sucessful.
+
+Expects as parameters:
+
+=over
+
+=item 1.
+
+Siebel local database L<DBI> database handler.
+
+=item 2.
+
+SQLite database L<DBI> database handler.
+
+=back
+
+Depending on several conditions, the data migration can take a while to finish.
+
+=head2 version
+
+Returns a float indicating the version of Siebel::LocalDB::Dumper.
+
+=head2 close_all
+
+Closes the DBI database handle gracefully: all non-finished statements will be finished.
+
+Expects a database handle as parameter.
 
 =head1 SEE ALSO
 
-Mention other useful documentation such as the documentation of
-related modules or operating system documentation (such as man pages
-in UNIX), or any relevant external documentation such as RFCs or
-standards.
+=over
 
-If you have a mailing list set up for your module, mention it here.
+=item *
 
-If you have a web site set up for your module, mention it here.
+L<DBI>
+
+=item *
+
+L<DBD::ODBC>
+
+=item *
+
+L<DBD::SQLite>
+
+=item *
+
+L<Siebel::LocalDB::Dumper::Column>
+
+=back
 
 =head1 AUTHOR
 
-A. U. Thor, E<lt>a.u.thor@a.galaxy.far.far.awayE<gt>
+Alceu Rodrigues de Freitas Junior, E<lt>arfreitas@cpan.org<gt>
 
 =head1 COPYRIGHT AND LICENSE
 
-Copyright (C) 2013 by A. U. Thor
+This software is copyright (c) 2013 of Alceu Rodrigues de Freitas Junior, E<lt>arfreitas@cpan.org<E<gt>
 
-This library is free software; you can redistribute it and/or modify
-it under the same terms as Perl itself, either Perl version 5.16.3 or,
-at your option, any later version of Perl 5 you may have available.
+This file is part of Siebel GNU Tools project.
 
+Siebel GNU Tools is free software: you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation, either version 3 of the License, or
+(at your option) any later version.
+
+Siebel GNU Tools is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License
+along with Siebel COM.  If not, see <http://www.gnu.org/licenses/>.
 
 =cut
