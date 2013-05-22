@@ -74,14 +74,14 @@ Alceu Rodrigues de Freitas Junior, E<lt>arfreitas@cpan.orgE<gt>
 
 This software is copyright (c) 2013 of Alceu Rodrigues de Freitas Junior, E<lt>arfreitas@cpan.org<E<gt>
 
-This file is part of Siebel COM project.
+This file is part of Siebel GNU Tools project.
 
-Siebel COM is free software: you can redistribute it and/or modify
+Siebel GNU Tools is free software: you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
 the Free Software Foundation, either version 3 of the License, or
 (at your option) any later version.
 
-Siebel COM is distributed in the hope that it will be useful,
+Siebel GNU Tools is distributed in the hope that it will be useful,
 but WITHOUT ANY WARRANTY; without even the implied warranty of
 MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
