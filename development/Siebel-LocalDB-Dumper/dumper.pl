@@ -37,6 +37,12 @@ The parameters below are obligatory:
 -p: expects as parameter the password for authentication as parameter
 -s: complete path to SQLite database to be used
 
+More information can be found by typing:
+
+perldoc Siebel::LocalDB::Dumper
+
+at the shell.
+
 BLOCK
 
     exit(0);
@@ -59,10 +65,9 @@ my $siebel_dbh = conn_siebel( $opts{d}, $opts{u}, $opts{p} );
 say "Creating corresponding SQLite new database in $opts{s}";
 my $sqlite_dbh = conn_sqlite( $opts{s} );
 
-#pulse_start( name => 'Dumping content...', rotate => 1, time => 1 );
+pulse_start( name => 'Dumping content...', rotate => 1, time => 1 );
 my $result = dump_all( $siebel_dbh, $sqlite_dbh );
-
-#pulse_stop();
+pulse_stop();
 
 if ($result) {
 
@@ -77,6 +82,8 @@ else {
 
 sub CLEANUP {
 
+    pulse_stop();
+
     say 'Caught Interrupt, aborting execution';
 
     foreach my $dbh ( $siebel_dbh, $sqlite_dbh ) {
@@ -84,8 +91,6 @@ sub CLEANUP {
         close_all($dbh) if ( defined($dbh) );
 
     }
-
-    #pulse_stop();
 
 	exit(1);
 

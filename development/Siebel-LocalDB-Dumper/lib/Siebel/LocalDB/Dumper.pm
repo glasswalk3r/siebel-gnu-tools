@@ -361,11 +361,11 @@ sub _S_PER_FCST_D {
                     name           => $column_name,
                     orig_type      => $columns{$column_name}->{TYPE_NAME},
                     decimal_digits => (
-                        ( $columns{column_name}->{DECIMAL_DIGITS} )
-                        ? $columns{column_name}->{DECIMAL_DIGITS}
+                        ( $columns{$column_name}->{DECIMAL_DIGITS} )
+                        ? $columns{$column_name}->{DECIMAL_DIGITS}
                         : 0
                     ),
-                    nullable => ( $columns{column_name}->{IS_NULLABLE} eq 'NO' )
+                    nullable => ( $columns{$column_name}->{IS_NULLABLE} eq 'NO' )
                     ? 0
                     : 1
                 }
@@ -498,6 +498,26 @@ L<DBD::SQLite>
 =item *
 
 L<Siebel::LocalDB::Dumper::Column>
+
+=back
+
+=head1 KNOWN ISSUES
+
+Sometimes the dumper get some issues from the Siebel local database and DBI will print some warnings to STDERR about them.
+
+The warnings messages below were found during some tests, but they can be ignored safely.
+
+=over
+
+=item Getting a string instead a float
+
+If the dumper warns something like the message below:
+
+    datatype mismatch: bind param (12) .0010000 as float at .\lib/Siebel/LocalDB/Dumper.pm line 251.
+
+That means that the Siebel local database had a value o ".0010000" (or anything that looks like that) that is understood by the database backend (L<DBI))
+as a string instead the float values as declared that the parameter should be. The database backend will convert the string to 0.001000 and will continue
+working without further issues.
 
 =back
 
