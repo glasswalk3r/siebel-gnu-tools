@@ -26,7 +26,7 @@ Devel::AssertOS::OSFeatures::SupportsSiebel - Perl extension to test if an OS is
 
 =head1 DESCRIPTION
 
-This module checks, only by importing it, if the OS running the code is supported by Siebel or not. If not, the module will C<die>, 
+This module checks, by just importing it, if the OS running the code is supported by Siebel or not. If not, the module will C<die>, 
 forcing the code to stop being executed.
 
 This module was proposed by David Cantrell in L<http://www.mail-archive.com/cpan-testers-discuss%40perl.org/msg03089.html>.

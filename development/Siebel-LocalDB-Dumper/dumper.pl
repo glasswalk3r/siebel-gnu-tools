@@ -21,7 +21,7 @@ sub HELP_MESSAGE {
 
     say <<BLOCK;
 
-$0 - version $VERSION
+Siebel LocalDB Dumper - version $VERSION
 
 This program will connect to a Siebel local database (of Siebel Tools or Siebel Client) and will dump their content to a SQLite database
 with the corresponding structure and data.
