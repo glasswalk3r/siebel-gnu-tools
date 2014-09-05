@@ -181,12 +181,20 @@ sub _set_sql_type {
 
     my $converted;
 
-    given ( $self->sqlite_type() ) {
+    CASE: {
 
-        when ('TEXT')    { $converted = SQL_VARCHAR }
-        when ('REAL')    { $converted = SQL_REAL }
-        when ('INTEGER') { $converted = SQL_INTEGER }
-        default { die 'unknow type received: "' . $self->sqlite_type() . '"' }
+        if ( $self->sqlite_type eq 'TEXT' ) { $converted = SQL_VARCHAR; last CASE; }
+        if ( $self->sqlite_type eq 'REAL') { $converted = SQL_REAL; last CASE; }
+        
+        if ( $self->sqlite_type eq 'INTEGER') {
+        
+          $converted = SQL_INTEGER; last CASE;
+          
+        } else { 
+        
+            die 'unknow type received: "' . $self->sqlite_type() . '"'
+            
+        }
 
     }
 
@@ -201,18 +209,21 @@ sub _set_sqlite_type {
 
     my $converted_type;
 
-    given ( $self->orig_type ) {
+    CASE: {
 
-        when ('varchar')      { $converted_type = 'TEXT' }
-        when ('long varchar') { $converted_type = 'TEXT' }
-        when ('char')         { $converted_type = 'TEXT' }
-        when ('timestamp')    { $converted_type = 'TEXT' }
-        when ('numeric') {
+        if ( $self->orig_type eq 'varchar') { $converted_type = 'TEXT'; last CASE; }
+        if ( $self->orig_type eq 'long varchar') { $converted_type = 'TEXT'; last CASE; }
+        if ( $self->orig_type eq 'char') { $converted_type = 'TEXT'; last CASE }
+        if ( $self->orig_type eq 'timestamp') { $converted_type = 'TEXT'; last CASE; }
+        if ( $self->orig_type eq 'numeric') {
             ( $self->decimal_digits() )
               ? ( $converted_type = 'REAL' )
               : ( $converted_type = 'INTEGER' )
+        } else { 
+        
+            die 'unknow type received: "' . $self->orig_type() . '"';
+            
         }
-        default { die 'unknow type received: "' . $self->orig_type() . '"' }
 
     }
 

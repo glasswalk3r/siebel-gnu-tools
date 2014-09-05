@@ -1,9 +1,7 @@
 package Siebel::LocalDB::Dumper;
 
-use 5.016003;
 use strict;
 use warnings;
-use feature qw(switch);
 use DBI qw(:utils);
 use Siebel::LocalDB::Dumper::Column;
 
@@ -18,7 +16,7 @@ our @EXPORT_OK = ( @{ $EXPORT_TAGS{'all'} } );
 
 our @EXPORT = qw(conn_siebel conn_sqlite dump_all version close_all);
 
-our $VERSION = '0.01';
+our $VERSION = '0.02';
 
 sub version {
 
@@ -155,14 +153,14 @@ and ( ( name like 'S_%' ) or ( name like 'CX_%' ) )};
                 }
                 else {
 
-                    given ( $stat_row->{ASC_OR_DESC} ) {
+                    CASE: {
 
-                        when (undef) { $asc_desc = '' }
-                        when ('A')   { $asc_desc = 'ASC' }
-                        when ('D')   { $asc_desc = 'DESC' }
-                        default {
-                            die( 'invalid ASC_DESC clause: '
-                                  . $stat_row->{ASC_OR_DESC} )
+                        unless ( defined($stat_row->{ASC_OR_DESC}) ) { $asc_desc = ''; last CASE; }
+                        if ( $stat_row->{ASC_OR_DESC} eq 'A') { $asc_desc = 'ASC'; last CASE; }
+                        if ( $stat_row->{ASC_OR_DESC} eq 'D') { 
+                            $asc_desc = 'DESC'; last CASE;
+                        } else {
+                            die( 'invalid ASC_DESC clause: ' . $stat_row->{ASC_OR_DESC} )
                         }
 
                     }
@@ -515,7 +513,7 @@ If the dumper warns something like the message below:
 
     datatype mismatch: bind param (12) .0010000 as float at .\lib/Siebel/LocalDB/Dumper.pm line 251.
 
-That means that the Siebel local database had a value o ".0010000" (or anything that looks like that) that is understood by the database backend (L<DBI))
+That means that the Siebel local database had a value o ".0010000" (or anything that looks like that) that is understood by the database backend (L<DBI>)
 as a string instead the float values as declared that the parameter should be. The database backend will convert the string to 0.001000 and will continue
 working without further issues.
 
@@ -527,7 +525,7 @@ Alceu Rodrigues de Freitas Junior, E<lt>arfreitas@cpan.org<gt>
 
 =head1 COPYRIGHT AND LICENSE
 
-This software is copyright (c) 2013 of Alceu Rodrigues de Freitas Junior, E<lt>arfreitas@cpan.org<E<gt>
+This software is copyright (c) 2013 of Alceu Rodrigues de Freitas Junior, E<lt>arfreitas@cpan.orgE<gt>
 
 This file is part of Siebel GNU Tools project.
 

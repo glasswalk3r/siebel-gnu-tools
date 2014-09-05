@@ -1,4 +1,3 @@
-use 5.016003;
 use ExtUtils::MakeMaker;
 
 # See lib/ExtUtils/MakeMaker.pm for details of how to influence
@@ -28,7 +27,5 @@ WriteMakefile(
         : ()
     ),
     EXE_FILES => ['dumper.pl'],
-    NO_MYMETA => 1,
-    NO_META   => 1,
     dist      => { SUFFIX => '.gz', COMPRESS => 'gzip --best' }
 );
