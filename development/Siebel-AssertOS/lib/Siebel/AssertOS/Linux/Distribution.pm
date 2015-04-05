@@ -5,12 +5,10 @@ use strict;
 use warnings;
 
 require Exporter;
-
-our @ISA = qw(Exporter);
-
+our @ISA       = qw(Exporter);
 our @EXPORT_OK = qw( distribution_name distribution_version );
 
-our $VERSION = '0.01';
+our $VERSION = "0.06";
 
 our $release_files_directory = '/etc';
 our $standard_release_file   = 'lsb-release';
@@ -43,6 +41,7 @@ our %release_files = (
     'libranet_version'      => 'libranet',
     'va-release'            => 'va-linux',
     'pardus-release'        => 'pardus',
+    'system-release'        => 'amazon',
 );
 
 our %version_match = (
@@ -55,15 +54,10 @@ our %version_match = (
     'oracle enterprise linux' => 'Enterprise Linux Server release (.+) \(',
     'slackware'               => '^Slackware (.+)$',
     'pardus'                  => '^Pardus (.+)$',
-    'centos'     => '^CentOS(?: Linux)? release (.+)(?:\s\(Final\))',
-    'scientific' => '^Scientific Linux release (.+) \(',
+    'centos'                  => '^CentOS(?: Linux)? release (.+) \(',
+    'scientific'              => '^Scientific Linux release (.+) \(',
+    'amazon'                  => 'Amazon Linux AMI release (.+)$',
 );
-
-if ( $^O ne 'linux' ) {
-
-#	require Carp;
-#	Carp::croak('you are trying to use a linux specific module on a different OS');
-}
 
 sub new {
     my %self = (
@@ -175,6 +169,7 @@ sub _get_file_info {
 }
 
 1;
+
 __END__
 
 =head1 NAME
@@ -183,7 +178,7 @@ Siebel::AssertOS::Linux::Distribution - detect if the Linux distribution support
 
 =head1 DESCRIPTION
 
-This module is a copy from L<Linux::Distribution> version 0.21. This had to be done because the original distribution checks in the Makefile.PL
+This module is a copy from L<Linux::Distribution> version 0.22. This had to be done because the original distribution checks in the Makefile.PL
 if the operation system trying to install is Linux, which in the case is the correct procedure as described in L<http://wiki.cpantesters.org/wiki/CPANAuthorNotes>.
 
 Unfortunately, L<Siebel::AssertOS> must consider first if the OS is Linux or not, then check other supported OS (if not).
