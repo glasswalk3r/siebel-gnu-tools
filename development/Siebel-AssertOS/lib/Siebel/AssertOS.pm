@@ -3,7 +3,7 @@ use warnings;
 use strict;
 use Siebel::AssertOS::Linux::Distribution qw(distribution_name);
 
-our $VERSION = "0.06";
+our $VERSION = "0.07";
 
 sub import {
 
