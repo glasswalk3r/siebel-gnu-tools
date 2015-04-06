@@ -20,11 +20,10 @@ my %config = (
     META_MERGE => {
         resources => {
             license  => 'http://www.gnu.org/licenses/gpl.txt',
-            homepage => 'http://code.google.com/p/siebel-gnu-tools/',
+            homepage => 'https://github.com/glasswalk3r/siebel-gnu-tools',
             bugtracker =>
-              'http://code.google.com/p/siebel-gnu-tools/issues/list',
-            repository =>
-              'http://code.google.com/p/siebel-gnu-tools/source/browse/'
+              'https://github.com/glasswalk3r/siebel-gnu-tools/issues',
+            repository => 'https://github.com/glasswalk3r/siebel-gnu-tools'
         },
     },
     dist => { SUFFIX => '.gz', COMPRESS => 'gzip --best' },

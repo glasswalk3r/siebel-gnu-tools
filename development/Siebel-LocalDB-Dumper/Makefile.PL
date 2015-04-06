@@ -12,7 +12,16 @@ WriteMakefile(
         'DBD::SQLite' => 1.37,
         'Moose'       => 2.0801
     },
-    BUILD_REQUIRES => {
+    META_MERGE => {
+        resources => {
+            license  => 'http://www.gnu.org/licenses/gpl.txt',
+            homepage => 'https://github.com/glasswalk3r/siebel-gnu-tools',
+            bugtracker =>
+              'https://github.com/glasswalk3r/siebel-gnu-tools/issues',
+            repository => 'https://github.com/glasswalk3r/siebel-gnu-tools'
+        },
+    },
+    TEST_REQUIRES => {
         'Test::Pod'           => 1.22,
         'Test::Pod::Coverage' => 1.08
     },

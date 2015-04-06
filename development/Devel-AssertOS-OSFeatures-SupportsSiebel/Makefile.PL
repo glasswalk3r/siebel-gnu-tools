@@ -7,9 +7,18 @@ WriteMakefile(
     NAME => 'Devel::AssertOS::OSFeatures::SupportsSiebel',
     VERSION_FROM =>
       'lib/Devel/AssertOS/OSFeatures/SupportsSiebel.pm',    # finds $VERSION
-    BUILD_REQUIRES => {
+    TEST_REQUIRES => {
         'Test::More' => 0,
         'Test::Pod'  => 1.22
+    },
+    META_MERGE => {
+        resources => {
+            license  => 'http://www.gnu.org/licenses/gpl.txt',
+            homepage => 'https://github.com/glasswalk3r/siebel-gnu-tools',
+            bugtracker =>
+              'https://github.com/glasswalk3r/siebel-gnu-tools/issues',
+            repository => 'https://github.com/glasswalk3r/siebel-gnu-tools'
+        },
     },
     PREREQ_PM => { 'Devel::CheckOS' => 1.71 },
     (
