@@ -46,6 +46,19 @@ from stat import *
 import traceback
 import iniparse
 
+def is_to_rem(ini):
+	"""
+	Checks if crash related files are expected to be removed or not.
+	Expects as parameter an instance of iniparse.BasicConfig.
+	Returns true (if "yes"), false (if "no") or raise an exception (for any value different of those two).
+	"""
+	if ini.clean_files == 'yes':
+		return True
+	elif ini.clean_files == 'no':
+		return False
+	else:
+		raise ValueError, 'invalid file for clean_files: (%s)' %(ini.clean_files)
+
 def dec2bin(decimal):
         """
         Back port of bin function to Python 2.4
@@ -74,8 +87,8 @@ def fix_threadid(thread_id):
 			else:
 				bin_digits.append('1')
 
-			temp = int(''.join(bin_digits[1:]),2)
-			temp += 1
+                temp = int(''.join(bin_digits[1:]),2)
+                temp += 1
 
 		return ("-" + str(temp) )
 	else:
@@ -172,12 +185,12 @@ def find_comp_alias(pid, enterprise_log):
 				fields = line.split()
 				log.close()
                 
-			if ( len(fields) >= 6 ):
-				print 'found it.'
-				return fields[6]
-			else:
-				print 'invalid line that matches the regex of process failure: "line".'
-				return None
+                                if ( len(fields) >= 6 ):
+                                        print 'found it.'
+                                        return fields[6]
+                                else:
+                                        print 'invalid line that matches the regex of process failure: "line".'
+                                        return None
 
 		log.close()
 		print 'not found'
@@ -324,7 +337,7 @@ if __name__ == '__main__':
 	enterprise_log_dir = ini.ent_log_dir
 	log_archive = ini.log_archive
 	enterprise_log_file = ini.ent_log_file
-	enterprise_log = ini.ent_log_dir
+	enterprise_log = os.path.join(ini.ent_log_dir,enterprise_log_file)
 	crashes = {}
 
 	from_to = signal_map()
@@ -374,7 +387,9 @@ if __name__ == '__main__':
 			else:
 				print 'done.'
 
-			os.remove(core_path)
+			if is_to_rem(ini):
+				os.remove(core_path)
+
 			os.remove(gdb_cmd_filename)
 			manage_comp_alias(crashes=crashes, pid=pid, default_log=enterprise_log, archive_dir=log_archive, crash_dir=crash_dir)
 			continue
@@ -404,7 +419,8 @@ if __name__ == '__main__':
 			if ret != 0:
 				print ' '.join(('\tsarmanalizer execution failed with code',str(ret)))
 
-			os.remove(fdr_path)
+			if is_to_rem(ini):
+				os.remove(fdr_path)
 			    
 			thread_id = find_thread_id(csv_file)
 			if thread_id is not None:
@@ -419,7 +435,12 @@ if __name__ == '__main__':
 			print 'Found file crash.txt, copying it... ',
 			if (not(os.path.isdir(crash_dir))):
 				os.mkdir(crash_dir)
-			os.rename( (os.path.join( bin_dir,filename ) ) , ( os.path.join( crash_dir,filename ) ) )
+
+			if is_to_rem(ini):
+				os.rename( (os.path.join( bin_dir,filename ) ) , ( os.path.join( crash_dir,filename ) ) )
+			else:
+				shutil.copy2( (os.path.join(bin_dir,filename)), crash_dir )
+
 			print 'done.'
 
 	if len(crashes):
