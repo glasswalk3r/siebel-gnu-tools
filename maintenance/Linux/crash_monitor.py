@@ -330,6 +330,9 @@ def readConfig():
 
 if __name__ == '__main__':
 
+	if not ( os.environ.has_key('SIEBEL_HOME') and os.environ.has_key('SIEBEL_LIB_DIR') ):
+		raise NameError('Environment variables SIEBEL_HOME and/or SIEBEL_LIB_DIR not available, check environment configuration before running this program!')
+
 	signal.signal(signal.SIGINT, signal_handler)
 	ini = readConfig()
 	bin_dir = ini.siebel_bin
@@ -339,7 +342,6 @@ if __name__ == '__main__':
 	enterprise_log_file = ini.ent_log_file
 	enterprise_log = os.path.join(ini.ent_log_dir,enterprise_log_file)
 	crashes = {}
-
 	from_to = signal_map()
 
 	for filename in os.listdir(bin_dir):
