@@ -39,7 +39,7 @@ sub new {
     # :WORKAROUND:28/3/2007:ARFJr: keep the last menu ID so it will be possible
     # to define new ones dinamically
     $self->{last_menu_item_id} = 1;
-    $self->{menubar} = Wx::MenuBar->new();
+    $self->{menubar}           = Wx::MenuBar->new();
     $self->SetMenuBar( $self->{menubar} );
     my $wxglade_tmp_menu;
     $wxglade_tmp_menu = Wx::Menu->new();
@@ -62,7 +62,8 @@ sub new {
     $self->{user_input} =
       Wx::TextCtrl->new( $self->{panel_1}, -1, "Type here the query",
         wxDefaultPosition, wxDefaultSize, wxTE_MULTILINE );
-    $self->{start_button} = Wx::Button->new( $self->{panel_1}, -1, 'Get details!' );
+    $self->{start_button} =
+      Wx::Button->new( $self->{panel_1}, -1, 'Get details!' );
     $self->{grid} = Wx::Grid->new( $self->{panel_1}, -1 );
     $self->__set_properties();
     $self->__do_layout();
@@ -97,14 +98,16 @@ sub new {
 # loops over the options in the Connection menu
 # and see which one is checked to report to the Controller
 sub changed_conn {
-    my $self = shift;
+    my $self     = shift;
     my $menu_bar = $self->get_menubar();
+
     # 1 means only the Connection menu
     my $menu_items = $menu_bar->GetMenu(1);
 
     foreach my $item ( $menu_items->GetMenuItems() ) {
 
         if ( $item->IsChecked() ) {
+
             # calls the Controller
             $self->notify_subscribers( 'changed_conn', $item->GetLabel() );
             last;
@@ -116,14 +119,16 @@ sub changed_conn {
 
 sub set_conn_menu {
     my $self = shift;
+
     # array reference
-    my $options = shift;
+    my $options  = shift;
     my $tmp_menu = Wx::Menu->new();
 
     foreach my $option ( @{$options} ) {
         $self->{last_menu_item_id}++;
         $tmp_menu->AppendCheckItem( $self->{last_menu_item_id},
             $option, 'Click to connect to' );
+
         #registering the event
         EVT_MENU(
             $self,
@@ -137,7 +142,7 @@ sub set_conn_menu {
 }
 
 sub __save_html {
-    my $self = shift;
+    my $self   = shift;
     my $dialog = $self->get_file_dialog();
     $dialog->SetFilename('QueryDocumentation.html');
     $dialog->SetWildcard('HTML files (*.html)|*.htm');
@@ -154,7 +159,7 @@ sub __save_html {
 }
 
 sub __save_csv {
-    my $self = shift;
+    my $self   = shift;
     my $dialog = $self->get_file_dialog();
     $dialog->SetWildcard('CSV files (*.csv)|*.csv');
     $dialog->SetFilename('QueryDocumentation.csv');
@@ -171,15 +176,17 @@ sub __save_csv {
 }
 
 sub __save_xml {
-    my $self = shift;
+    my $self   = shift;
     my $dialog = $self->get_file_dialog();
     $dialog->SetWildcard('XML files (*.xml)|*.xml');
     $dialog->SetFilename('QueryDocumentation.xml');
 
     if ( $dialog->ShowModal == wxID_OK ) {
         my $full_path = $dialog->GetPath();
+
         # File::Basename function to fetch only the filename
         my $name = fileparse($full_path);
+
         # removing the extension, to avoid problems with XML syntax
         $name =~ s/\.xml$//;
         open( OUT, '>', $full_path )
@@ -246,18 +253,15 @@ sub __do_layout {
 }
 
 sub error_msg {
-	my ($self, $message) = @_;
-    my $self    = shift;
-    my $message = shift;
+    my ( $self, $message ) = @_;
+
     #setting the status bar
     $self->{statusbar}->SetStatusText( 'An error ocurred', 0 );
     Wx::MessageBox( $message, 'ERROR', wxICON_ERROR, $self );
 }
 
 sub change_status {
-	my ($self, $message) = @_;
-    my $self    = shift;
-    my $message = shift;
+    my ( $self, $message ) = @_;
     $self->{statusbar}->SetStatusText( $message, 0 );
 }
 
@@ -267,10 +271,13 @@ sub show_result {
     my ( $item, $event, $result ) = @_;
 
     if ( $result->isa('QueryParser::Result') ) {
+
         # keeping a referent to the result object
         $self->set_query_result($result);
+
         # array_ref is a bidimensional array with the query parsed values
         my $array_ref = $result->get_fields();
+
         # fetching how many rows are in the QueryParser::Result object
         my $total_rows = scalar @{$array_ref};
         my $grid       = $self->get_grid();
@@ -297,6 +304,7 @@ sub show_result {
         #looping over the rows
         for ( my $y = 0 ; $y <= $total_rows ; $y++ ) {
             my $row_ref = $array_ref->[$y];
+
             #updating the columns name, type and size
             $grid->SetCellValue( $y, 0, $row_ref->[0] );
             $grid->SetCellValue( $y, 1, $row_ref->[1] );
@@ -315,6 +323,7 @@ sub show_result {
 # double click with the right mouse button on a grid label
 sub __init_parsing {
     my $self = shift;
+
     # check if there is something in the write_panel
     my $user_entry = $self->get_user_input()->GetValue();
 
@@ -329,6 +338,7 @@ sub __init_parsing {
 sub __copy_all {
     my $self = shift;
     my $grid = $self->get_grid();
+
     # just to give a visual effect about what is happening
     $grid->SelectAll();
     wxTheClipboard->Open;
