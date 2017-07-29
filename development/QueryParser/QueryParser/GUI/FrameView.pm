@@ -230,12 +230,12 @@ sub __do_layout {
     my $self = shift;
     $self->{sizer_1} = Wx::BoxSizer->new(wxVERTICAL);
     $self->{grid_sizer_1} = Wx::FlexGridSizer->new( 2, 2, 0, 0 );
-    $self->{grid_sizer_1}
-      ->Add( $self->{user_input}, 0, wxEXPAND | wxADJUST_MINSIZE );
-    $self->{grid_sizer_1}->Add( $self->{start_button}, 0,
-        wxLEFT | wxALIGN_CENTER_VERTICAL | wxADJUST_MINSIZE, 20 );
-    $self->{grid_sizer_1}
-      ->Add( $self->{grid}, 1, wxEXPAND | wxADJUST_MINSIZE, 0 );
+#    $self->{grid_sizer_1}->Add( $self->{user_input}, 0, wxEXPAND | wxADJUST_MINSIZE );
+    $self->{grid_sizer_1}->Add( $self->{user_input}, 0, wxEXPAND );
+#    $self->{grid_sizer_1}->Add( $self->{start_button}, 0, wxLEFT | wxALIGN_CENTER_VERTICAL | wxADJUST_MINSIZE, 20 );
+    $self->{grid_sizer_1}->Add( $self->{start_button}, 0, wxLEFT | wxALIGN_CENTER_VERTICAL, 20 );
+#    $self->{grid_sizer_1}->Add( $self->{grid}, 1, wxEXPAND | wxADJUST_MINSIZE, 0 );
+    $self->{grid_sizer_1}->Add( $self->{grid}, 1, wxEXPAND, 0 );
     $self->{panel_1}->SetAutoLayout(1);
     $self->{panel_1}->SetSizer( $self->{grid_sizer_1} );
     $self->{grid_sizer_1}->Fit( $self->{panel_1} );
