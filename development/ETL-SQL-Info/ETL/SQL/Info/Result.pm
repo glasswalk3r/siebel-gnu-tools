@@ -1,4 +1,4 @@
-package QueryParser::Result;
+package ETL::SQL::Info::Result;
 
 use warnings;
 use strict;

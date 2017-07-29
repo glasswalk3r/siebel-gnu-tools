@@ -1,4 +1,4 @@
-package QueryParser::DAO;
+package ETL::SQL::Info::DAO;
 
 use warnings;
 use strict;

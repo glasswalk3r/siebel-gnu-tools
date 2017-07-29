@@ -1,4 +1,4 @@
-package QueryParser::GUI::FrameView;
+package ETL::SQL::Info::GUI::FrameView;
 
 use strict;
 use warnings;

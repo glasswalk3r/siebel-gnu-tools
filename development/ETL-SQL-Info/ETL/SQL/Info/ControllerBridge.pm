@@ -1,4 +1,4 @@
-package QueryParser::ControllerBridge;
+package ETL::SQL::Info::ControllerBridge;
 use warnings;
 use strict;
 use Carp;

@@ -1,4 +1,4 @@
-package QueryParser::GUI::ApplicationView;
+package ETL::SQL::Info::GUI::ApplicationView;
 
 # only initializes WxPerl application for the Frame to be shown
 use warnings;
