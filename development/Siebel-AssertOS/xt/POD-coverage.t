@@ -1,3 +1,8 @@
-use Test::Pod::Coverage tests => 1;
-pod_coverage_ok( "Siebel::AssertOS", "Siebel::AssertOS is covered" );
+use warnings;
+use strict;
+use Test::Pod::Coverage tests => 2;
+
+for my $module(qw(Siebel::AssertOS Siebel::AssertOS::Validate)) {
+	pod_coverage_ok($module, "$module is POD covered");
+}
 
