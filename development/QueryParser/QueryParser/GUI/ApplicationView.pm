@@ -6,6 +6,7 @@ use strict;
 use QueryParser::GUI::FrameView;
 # just to inherit the new method
 use base qw(Wx::App);
+# VERSION
 
 sub OnInit {
     my $self  = shift;

@@ -2,7 +2,7 @@ package QueryParser::DAO;
 
 use warnings;
 use strict;
-use DBI 1.623 qw(:sql_types);
+use DBI 1.636 qw(:sql_types);
 use base qw(Class::Accessor Class::Publisher);
 use QueryParser::Result;
 use Hash::Util qw(lock_keys unlock_keys);

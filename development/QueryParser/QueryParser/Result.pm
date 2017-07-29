@@ -2,7 +2,7 @@ package QueryParser::Result;
 
 use warnings;
 use strict;
-use DBI qw(:sql_types);
+use DBI 1.636 qw(:sql_types);
 use File::Basename;
 use base qw(Class::Accessor);
 use Hash::Util qw(lock_keys);
