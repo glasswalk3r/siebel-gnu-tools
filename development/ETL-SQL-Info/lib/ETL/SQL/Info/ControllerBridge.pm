@@ -4,7 +4,7 @@ use strict;
 use Carp;
 use base qw(Class::Accessor);
 use Config::Tiny 2.14;
-use QueryParser::DAO;
+use ETL::SQL::Info::DAO;
 __PACKAGE__->follow_best_practice;
 __PACKAGE__->mk_ro_accessors(qw(view model config));
 
@@ -64,7 +64,7 @@ sub new {
       unless ( defined($first_section) );
 
     # DAO should be the same for any Controller
-    $self->{model} = QueryParser::DAO->new( $self->{config}->{$first_section} );
+    $self->{model} = ETL::SQL::Info::DAO->new( $self->{config}->{$first_section} );
     bless $self, $class;
     return $self;
 }

@@ -45,13 +45,10 @@ A string of the user used for authentication at the database.
 
 A string of the user password for database authentication.
 
-=head2 driver
+=head2 dsn
 
-The respective L<DBI> driver to connect to the database.
-
-=head2 database
-
-The database name and location, as described in L<DBI>.
+The respective DSN to connect to the database. Check out the L<DBI> for details
+on that.
 
 =head1 METHODS
 
@@ -59,7 +56,7 @@ The database name and location, as described in L<DBI>.
 
 __PACKAGE__->follow_best_practice();
 __PACKAGE__->mk_ro_accessors(qw(sql_types dbh));
-__PACKAGE__->mk_accessors(qw(query columns user password driver database));
+__PACKAGE__->mk_accessors(qw(query columns user password dsn));
 
 =head2 new
 
@@ -75,18 +72,15 @@ sub new {
       unless ( exists( $self->{user} ) and defined( $self->{user} ) );
     confess('password is an obligatory parameter in the configuration file')
       unless ( exists( $self->{password} ) and defined( $self->{password} ) );
-    confess('driver is an obligatory parameter in the configuration file')
-      unless ( exists( $self->{driver} ) and defined( $self->{driver} ) );
-    confess( 'driver string is incorrect: ' . $self->{driver} )
-      unless ( $self->{driver} =~ /^dbi\:\w+$/ );
-    confess('database is an obligatory parameter in the configuration file')
-      unless ( exists( $self->{database} )
-        and defined( $self->{database} ) );
-    $self->_create_list();
+    confess('dsn is an obligatory parameter in the configuration file')
+      unless ( exists( $self->{dsn} ) and defined( $self->{dsn} ) );
+    confess( 'dsn string is incorrect: ' . $self->{dsn} )
+      unless ( $self->{dsn} =~ /^dbi\:\w+/i );
     $self->{query}      = undef;
     $self->{dbh}        = undef;
     $self->{properties} = undef;
     bless $self, $class;
+    $self->_create_list();
     lock_keys( %{$self} );
     return $self;
 }
@@ -116,8 +110,7 @@ sub _set_dbh {
     my $self = shift;
     $self->disconnect();
     $self->{dbh} =
-      DBI->connect( $self->get_driver() . ':' . $self->get_database(),
-        $self->get_user(), $self->get_password() )
+      DBI->connect( $self->get_dsn, $self->get_user(), $self->get_password() )
       or confess "Cannot connect to database: $DBI::errstr";
     return 1;
 }
@@ -199,13 +192,16 @@ sub parse_query {
     # :WARNING:23/3/2007:ARFJr: should notify only interface like superclasses!
     # $self should provide an reference to get Model state
     $self->notify_subscribers( 'new_query', $self->get_columns() );
-	return 1;
+    return 1;
 
 }
 
 sub _create_list {
     my $self = shift;
     my %list;
+
+    # better calling the sub ref than using eval
+    no strict 'refs';
 
     for my $constant ( @{ $DBI::EXPORT_TAGS{sql_types} } ) {
         my $index = &{"DBI::$constant"};

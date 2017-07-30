@@ -1,36 +1,46 @@
-QueryParser
-=====================================================
+# NAME
 
-This application can execute a SELECT query into any "DBI-connectable" database and return the metadata from the columns available in the table
-(or tables, if there are multiple). This is handy to generate documentation for ETL process and the application can export such metadata to text,
-CSV, HTML or XML.
+ETL::SQL::Info - provides data information about SQL based ETL
 
-Since the SELECT recovered data is just ignored, it is a good practice to limit the output from the query by using the related statement for your database
-of choice (for example, "ROWNUM" in Oracle and "LIMIT" for MySQL).
+# DESCRIPTION
 
-The script "queryparser.plx" starts the application and it is a good idea to associate the extension "plx" to the wperl interpreter, where it is available
-to avoid opening an additional command line window with application.
+This module is Pod only. Check out other modules for implementation details.
 
-INSTALLATION
+The main functionaly of this distribution is to enable automatic retrieval of information
+from queries used for ETL processed on relational databases.
 
-To install this module type the following:
+It was created to generate automatic documentation for queries used in ETL: the end user
+provides a SQL query, that is submitted to the database to be evaluated, and if it is valid, 
+metadata is recovered from the columns described in the query.
 
-   perl Makefile.PL
-   make
-   make test
-   make install
-   
-Also check the config.ini file that must be edited to provide DB connection details. Beware that a valid DBI "driver" must be available to connect
-to the desired database as well the SELECT must use a syntax understandble by the database. The "driver" key must have a value that always begins with
-'DBI:'.
+This is useful if it is necessary to describe the expected format of data to be exported/imported
+into different systems. Since the data is automatically recovered, very little needs to be done to
+provide such information. It is specially useful if you have several columns `JOIN`ed from different
+tables in the database (or several databases, it doesn't matter).
 
-DEPENDENCIES
+That being said, it only makes sense to use this project with `SELECT` statements.
 
-See Makefile.PL (PREREQ_PM) for details.
+# INSTALL
 
-COPYRIGHT AND LICENCE
+This program depends on wxWidgets, Perl and some Perl modules.
 
-This software is copyright (c) 2013 of Alceu Rodrigues de Freitas Junior, arfreitas@cpan.org
+In order to work, first install the wxWidgets (refer to it's [documentation](http://wxwidgets.org/) for that).
+
+Then, install [Perl](http://perl.org) and finally, choose your prefered way to install this distribution itself.
+
+For that, you can use [CPAN](http://cpan.org), or `git clone` this repository and it's `cpanfile` (and avoid the many
+dependencies from `Dist::Zilla`). Both ways, your CPAN client will take care of the dependencies for you (assuming you have
+a connection to the Internet or a local CPAN repository).
+
+Of course, the good and old `perl Makefile.PL`, `make` and `make install` is still available, but it is not much fun these days.
+
+# AUTHOR
+
+Alceu Rodrigues de Freitas Junior, <arfreitas@cpan.org>
+
+# COPYRIGHT AND LICENSE
+
+This software is copyright (c) 2013 of Alceu Rodrigues de Freitas Junior, <arfreitas@cpan.org>
 
 This file is part of Siebel GNU Tools project.
 
@@ -45,4 +55,4 @@ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
-along with Siebel COM.  If not, see http://www.gnu.org/licenses/.
+along with Siebel GNU Tools.  If not, see (http://www.gnu.org/licenses/).

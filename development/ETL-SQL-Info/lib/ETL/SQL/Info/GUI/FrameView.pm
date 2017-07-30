@@ -281,7 +281,7 @@ sub __save_xml {
 
 sub __set_properties {
     my $self = shift;
-    $self->SetTitle('Properties of export interfaces');
+    $self->SetTitle("ETL SQL Info - version $VERSION");
     $self->{statusbar}->SetStatusWidths(-1);
     my (@statusbar_fields) = ('Application started');
 
@@ -364,7 +364,7 @@ sub _show_result {
 	# the parameters definition is due the Class::Publisher interface of add_subscriber
     my ( $self, $item, $event, $result ) = @_;
 
-    if ( $result->isa('QueryParser::Result') ) {
+    if ( $result->isa('ETL::SQL::Info::Result') ) {
 
         # keeping a referent to the result object
         $self->set_query_result($result);
@@ -372,7 +372,7 @@ sub _show_result {
         # array_ref is a bidimensional array with the query parsed values
         my $array_ref = $result->get_fields();
 
-        # fetching how many rows are in the QueryParser::Result object
+        # fetching how many rows are in the Result object
         my $total_rows = scalar @{$array_ref};
         my $grid       = $self->get_grid();
 

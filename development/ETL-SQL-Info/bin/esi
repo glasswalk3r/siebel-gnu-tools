@@ -12,9 +12,11 @@ use Pod::Usage;
 my $config;
 my $help = 0;
 my $man  = 0;
-GetOptions( 'help|?' => \$help, man => \$man, 'config=s' => \$config )
+my $version = 0;
+GetOptions( 'help|?' => \$help, man => \$man, 'config=s' => \$config, 'version' => \$version )
   or pod2usage(2);
 pod2usage(1) if $help;
+show_version() if $version;
 pod2usage( -exitval => 0, -verbose => 2 ) if $man;
 
 # passed as command line option
@@ -38,6 +40,11 @@ $view->GetTopWindow()
   ->set_conn_menu( [ keys( %{ $controller->get_config() } ) ] );
 $view->MainLoop;
 
+sub show_version {
+	print "esi - version $VERSION\n\n";
+	exit;
+}
+
 __END__
 
 =pod
@@ -52,9 +59,9 @@ esi [options]
 
   Options:
     --help: brief help message
-	--man: full documentation
-	--config: alternative full path to the INI configuration file
-	--version: prints the program name and version and exists
+    --man: full documentation
+    --config: alternative full path to the INI configuration file
+    --version: prints the program name and version and exists
 
 =head1 DESCRIPTION
 
@@ -87,8 +94,7 @@ If you don't provide C<--config> neither, the program will end with an error mes
 The configuration file must have the following options:
 
   [Siebel DEV]
-  database = mine 
-  driver = dbi:mysql
+  dsn = DBI:mysql:database=foobar;host=foobar.org;port=12345
   user = foo
   password = bar
 

@@ -97,7 +97,7 @@ sub query_ready {
 
     if ($@) {
 
-        # get the the top frame QueryParser::GUI::FrameView
+        # get the the top frame ETL::SQL::Info::GUI::FrameView
         $self->get_view()->GetTopWindow()->error_msg($@);
     }
 
