@@ -1,0 +1,147 @@
+#!perl
+use warnings;
+use strict;
+use ETL::SQL::Info::GUI::Controller;
+use File::HomeDir 1.00;
+use Getopt::Long;
+use File::Spec;
+use Pod::Usage;
+
+# VERSION
+
+my $config;
+my $help = 0;
+my $man  = 0;
+GetOptions( 'help|?' => \$help, man => \$man, 'config=s' => \$config )
+  or pod2usage(2);
+pod2usage(1) if $help;
+pod2usage( -exitval => 0, -verbose => 2 ) if $man;
+
+# passed as command line option
+unless ( defined($config) ) {
+    my $home = File::HomeDir->my_home;
+    $config = File::Spec->catfile( $home, 'config.ini' );
+
+    unless ( -r $config ) {
+        warn
+"No readable config.ini available on $home or provided with --config\n";
+        pod2usage(1);
+    }
+}
+
+my $controller = ETL::SQL::Info::GUI::Controller->new($config);
+my $view       = $controller->get_view();
+
+# gets the sections from the INI file to use them as descriptors of the connections
+# in the Connection menu
+$view->GetTopWindow()
+  ->set_conn_menu( [ keys( %{ $controller->get_config() } ) ] );
+$view->MainLoop;
+
+__END__
+
+=pod
+
+=head1 NAME
+
+esi - graphical application to retrieve metadata about the columns used in a SQL query
+
+=head1 SYNOPSIS
+
+esi [options]
+
+  Options:
+    --help: brief help message
+	--man: full documentation
+	--config: alternative full path to the INI configuration file
+	--version: prints the program name and version and exists
+
+=head1 DESCRIPTION
+
+This application can execute a C<SELECT> query into any relational database supported on L<DBI> and return the metadata from the columns available in the table
+(or tables, if there are multiple joined somehow).
+
+This is handy to generate documentation for ETL process and the application can export such metadata to text, CSV, HTML or XML.
+
+Since the SELECT recovered data is just ignored, it is a good practice to limit the output from the query by using the related statement for your database
+of choice (for example, C<ROWNUM> in Oracle Database and C<LIMIT> for MySQL).
+
+=head1 Configuration file
+
+This application expects to reads it's configuration from a INI file. There are two modes available to have it:
+
+=over
+
+=item *
+
+A F<config.ini> available on the end user home directory (definition on that depends on the OS you're running it)
+
+=item *
+
+The end user provides it with the C<--config> command line option.
+
+=back
+
+If you don't provide C<--config> neither, the program will end with an error message.
+
+The configuration file must have the following options:
+
+  [Siebel DEV]
+  database = mine 
+  driver = dbi:mysql
+  user = foo
+  password = bar
+
+=head1 For MS Windows users
+
+Windows users might want to rename this program to "esi.plx" and associate this file extension with the program F<wperl.exe> available in this platform. This
+will enable the end user to open the GUI without having to leave an (unused) command line window hanging around.
+
+=head1 SEE ALSO
+
+=over
+
+=item *
+
+L<ETL::SQL::Info>
+
+=item *
+
+L<DBI>
+
+=item *
+
+L<Config::Tiny>
+
+=item *
+
+L<https://github.com/glasswalk3r/siebel-gnu-tools>
+
+=back
+
+=head1 AUTHOR
+
+Alceu Rodrigues de Freitas Junior, E<lt>arfreitas@cpan.orgE<gt>
+
+=head1 COPYRIGHT AND LICENSE
+
+This software is copyright (c) 2013 of Alceu Rodrigues de Freitas Junior, E<lt>arfreitas@cpan.orgE<gt>
+
+This file is part of Siebel GNU Tools project.
+
+Siebel GNU Tools is free software: you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation, either version 3 of the License, or
+(at your option) any later version.
+
+Siebel GNU Tools is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License
+along with Siebel GNU Tools.  If not, see <http://www.gnu.org/licenses/>.
+
+=cut
+
+# vim: filetype=perl

@@ -25,6 +25,8 @@ tables in the database (or several databases, it doesn't matter).
 
 The data that is recovered is described at L<ETL::SQL::Info::Result>.
 
+That being said, it only makes sense to use this project with C<SELECT> statements.
+
 =head1 SEE ALSO
 
 =over

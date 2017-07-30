@@ -5,17 +5,75 @@ use warnings;
 use Wx 0.9922 qw[:allclasses :everything];
 use Wx::Grid 0.01;
 use base qw(Wx::Frame Class::Accessor Class::Publisher);
-use QueryParser::DAO;
-use QueryParser::Result;
 use Wx::Event qw(EVT_BUTTON EVT_GRID_LABEL_RIGHT_DCLICK EVT_MENU);
 use File::Basename;
+use ETL::SQL::Info::Result;
 use Hash::Util qw(lock_keys unlock_keys);
+
 # VERSION
+
+=pod
+
+=head1 NAME
+
+ETL::SQL::Info::GUI::Frameview - GUI elements implementation with Wx
+
+=head1 DESCRIPTION
+
+View in MVC design pattern implemented with L<Wx>.
+
+This class inherits from L<Wx::Frame> and should not be used directly, but from a
+class that implements L<Wx::App>.
+
+Communication with the Controller is provided by the superclass L<Class::Publisher>.
+
+=head1 METHODS
+
+=cut
 
 __PACKAGE__->follow_best_practice();
 __PACKAGE__->mk_ro_accessors(
     qw(start_button user_input grid file_dialog menubar));
 __PACKAGE__->mk_accessors(qw(query_result));
+
+=head2 new
+
+Creates and returns an instance of this class. Expects the following parameters, 
+as defined by L<Wx::Frame>, in this order:
+
+=over
+
+=item 1
+
+parent
+
+=item 2
+
+id
+
+=item 3
+
+title
+
+=item 4
+
+position
+
+=item 5
+
+size
+
+=item 6
+
+style
+
+=item 7
+
+name
+
+=back
+
+=cut
 
 sub new {
     my ( $self, $parent, $id, $title, $pos, $size, $style, $name ) = @_;
@@ -77,27 +135,41 @@ sub new {
         wxFD_SAVE | wxFD_OVERWRITE_PROMPT    # style
     );
 
-    #registries for the event of the model
-    QueryParser::DAO->add_subscriber( 'new_query',
-        sub { $self->show_result(@_) } );
-
     # registry the event with the external Controller
     EVT_BUTTON(
         $self,
         $self->{start_button}->GetId(),
         sub { $self->__init_parsing() }
     );
-
     EVT_GRID_LABEL_RIGHT_DCLICK( $self, sub { $self->__copy_all() } );
 
     # sane value for query result
-    $self->{query_result} = QueryParser::Result->new('');
+    $self->{query_result} = ETL::SQL::Info::Result->new('');
     lock_keys( %{$self} );
     return $self;
 }
 
-# loops over the options in the Connection menu
-# and see which one is checked to report to the Controller
+=head2 get_query_callback
+
+Does not expect any parameter.
+
+Returns a closure to be registered as a callback when the C<new_query> event happens.
+
+The closure itself expects a L<ETL::SQL::Info::Result> instance as parameter.
+
+=cut
+
+sub get_query_callback {
+    my $self = shift;
+    return sub { $self->_show_result(@_) };
+}
+
+=head2 changed_conn
+
+Loops over the options in the I<Connection> menu and see which one is checked to report to the Controller.
+
+=cut 
+
 sub changed_conn {
     my $self     = shift;
     my $menu_bar = $self->get_menubar();
@@ -105,7 +177,7 @@ sub changed_conn {
     # 1 means only the Connection menu
     my $menu_items = $menu_bar->GetMenu(1);
 
-    foreach my $item ( $menu_items->GetMenuItems() ) {
+    for my $item ( $menu_items->GetMenuItems() ) {
 
         if ( $item->IsChecked() ) {
 
@@ -118,6 +190,14 @@ sub changed_conn {
 
 }
 
+=head2 set_conn_menu
+
+Receives a list of connections name available in the configuration file to show in the menu.
+
+Returns true if everything went fine.
+
+=cut
+
 sub set_conn_menu {
     my $self = shift;
 
@@ -125,7 +205,7 @@ sub set_conn_menu {
     my $options  = shift;
     my $tmp_menu = Wx::Menu->new();
 
-    foreach my $option ( @{$options} ) {
+    for my $option ( @{$options} ) {
         $self->{last_menu_item_id}++;
         $tmp_menu->AppendCheckItem( $self->{last_menu_item_id},
             $option, 'Click to connect to' );
@@ -139,7 +219,7 @@ sub set_conn_menu {
     }
 
     $self->get_menubar()->Append( $tmp_menu, 'Connection' );
-
+	return 1;
 }
 
 sub __save_html {
@@ -232,7 +312,8 @@ sub __do_layout {
     $self->{sizer_1} = Wx::BoxSizer->new(wxVERTICAL);
     $self->{grid_sizer_1} = Wx::FlexGridSizer->new( 2, 2, 0, 0 );
     $self->{grid_sizer_1}->Add( $self->{user_input}, 0, wxEXPAND );
-    $self->{grid_sizer_1}->Add( $self->{start_button}, 0, wxLEFT | wxALIGN_CENTER_VERTICAL, 20 );
+    $self->{grid_sizer_1}
+      ->Add( $self->{start_button}, 0, wxLEFT | wxALIGN_CENTER_VERTICAL, 20 );
     $self->{grid_sizer_1}->Add( $self->{grid}, 1, wxEXPAND, 0 );
     $self->{panel_1}->SetAutoLayout(1);
     $self->{panel_1}->SetSizer( $self->{grid_sizer_1} );
@@ -250,6 +331,14 @@ sub __do_layout {
     $self->Layout();
 }
 
+=head2 error_msg
+
+Shows a message box with an error message.
+
+Expects as parameter a string representing the message.
+
+=cut
+
 sub error_msg {
     my ( $self, $message ) = @_;
 
@@ -258,15 +347,22 @@ sub error_msg {
     Wx::MessageBox( $message, 'ERROR', wxICON_ERROR, $self );
 }
 
-sub change_status {
+=head2 update_status
+
+Updates the status bar of the GUI.
+
+Expects a message as a string to be used for showing.
+
+=cut
+
+sub update_status {
     my ( $self, $message ) = @_;
     $self->{statusbar}->SetStatusText( $message, 0 );
 }
 
-# shows the parsed query in the proper text field
-sub show_result {
-    my $self = shift;
-    my ( $item, $event, $result ) = @_;
+sub _show_result {
+	# the parameters definition is due the Class::Publisher interface of add_subscriber
+    my ( $self, $item, $event, $result ) = @_;
 
     if ( $result->isa('QueryParser::Result') ) {
 
@@ -345,6 +441,31 @@ sub __copy_all {
         Wx::TextDataObject->new( $self->get_query_result()->to_string() ) );
     wxTheClipboard->Close;
 }
+
+=head1 AUTHOR
+
+Alceu Rodrigues de Freitas Junior, E<lt>arfreitas@cpan.orgE<gt>
+
+=head1 COPYRIGHT AND LICENSE
+
+This software is copyright (c) 2013 of Alceu Rodrigues de Freitas Junior, E<lt>arfreitas@cpan.orgE<gt>
+
+This file is part of Siebel GNU Tools project.
+
+Siebel GNU Tools is free software: you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation, either version 3 of the License, or
+(at your option) any later version.
+
+Siebel GNU Tools is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License
+along with Siebel GNU Tools.  If not, see <http://www.gnu.org/licenses/>.
+
+=cut
 
 1;
 
