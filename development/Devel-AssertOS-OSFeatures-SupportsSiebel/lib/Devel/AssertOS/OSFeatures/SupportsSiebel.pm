@@ -33,7 +33,8 @@ This module was proposed by David Cantrell in L<http://www.mail-archive.com/cpan
 
 =head2 EXPORT
 
-None, but the functions below can be used by calling them with the complete package name (Devel::AssertOS::OSFeatures::SupportsSiebel::<function>).
+None, but the functions below can be used by calling them with the complete package name (C<Devel::AssertOS::OSFeatures::SupportsSiebel::FUNCTION>, 
+where <B>FUNCTION</B> is the name of the function you wnat to use).
 
 =head3 matches
 
